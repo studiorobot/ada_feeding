@@ -159,7 +159,7 @@ async def main(args: argparse.Namespace, pwd: str) -> None:
     )
 
     # Determine which screen sessions to start and what commands to run
-    if args.sim == "mock":
+    if args.sim == "mock_jaco":
         screen_sessions = {
             "web": [
                 "cd ./src/feeding_web_interface/feedingwebapp",
@@ -209,6 +209,63 @@ async def main(args: argparse.Namespace, pwd: str) -> None:
             ],
             "moveit": [
                 "ros2 launch ada_planning_scene ada_moveit_launch.xml sim:=mock"
+            ],
+            "browser": [
+                "cd ./src/feeding_web_interface/feedingwebapp",
+                "node start_robot_browser.js",
+            ],
+        }
+        close_commands = {}
+    elif args.sim == "mock_kortex":
+        screen_sessions = {
+            "web": [
+                "cd ./src/feeding_web_interface/feedingwebapp",
+                "npm run start",
+            ],
+            "webrtc": [
+                "cd ./src/feeding_web_interface/feedingwebapp",
+                "node --env-file=.env server.js",
+            ],
+            "ft": [
+                "ros2 run ada_feeding dummy_ft_sensor.py",
+            ],
+            "camera": [
+                (
+                    "ros2 launch feeding_web_app_ros2_test feeding_web_app_dummy_nodes_launch.xml "
+                    "run_motion:=false run_web_bridge:=false "
+                    "run_food_detection:=false run_face_detection:=false "
+                    "run_food_on_fork_detection:=false run_table_detection:=false "
+                ),
+            ],
+            "nano_bridge_sender": [
+                "ros2 launch nano_bridge sender.launch.xml",
+            ],
+            "nano_bridge_receiver": [
+                "ros2 launch nano_bridge receiver.launch.xml",
+            ],
+            "perception": [
+                (
+                    "ros2 launch feeding_web_app_ros2_test feeding_web_app_dummy_nodes_launch.xml "
+                    "run_motion:=false run_web_bridge:=false run_real_sense:=false"
+                ),
+            ],
+            "republisher": [
+                (
+                    "ros2 run ada_feeding_perception republisher --ros-args --params-file "
+                    "src/ada_feeding/ada_feeding_perception/config/republisher.yaml"
+                ),
+            ],
+            "rosbridge": [
+                "ros2 launch rosbridge_server rosbridge_websocket_launch.xml"
+            ],
+            "feeding": [
+                (
+                    "ros2 launch ada_feeding ada_feeding_launch.xml use_estop:=false "
+                    f"policy:={args.policy}"
+                ),
+            ],
+            "moveit": [
+                "ros2 launch ada_planning_scene ada_moveit_kortex_launch.xml sim:=mock"
             ],
             "browser": [
                 "cd ./src/feeding_web_interface/feedingwebapp",
@@ -407,7 +464,7 @@ if __name__ == "__main__":
     # Get the arguments
     args = parser.parse_args()
     # Check args
-    if args.sim not in ["real", "mock", "dummy"]:
+    if args.sim not in ["real", "mock_jaco", "mock_kortex", "dummy"]:
         raise ValueError(
             f"Unknown sim value {args.sim}. Must be one of ['real', 'mock', 'dummy']."
         )
