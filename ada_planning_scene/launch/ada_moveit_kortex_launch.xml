@@ -13,7 +13,7 @@
 
   <!-- Launch MoveIt -->
   <group if="$(var run_moveit)">
-    <include file="$(find-pkg-share ada_moveit_kortex)/launch/demo.launch.py">
+    <include file="$(find-pkg-share ada_moveit)/launch/demo.launch.py">
       <arg name="calib" value="$(var calib)"/>
       <arg name="log_level" value="$(var log_level)"/>
       <arg name="sim" value="$(var sim)"/>

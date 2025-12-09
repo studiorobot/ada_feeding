@@ -819,5 +819,37 @@ If sourcing older configs, reset MoveIt:
 ```bash
 rm -rf ~/.moveit
 ```
+---
+
+````markdown
+## Web App Stuck on “Robot is Thinking”
+
+If everything seems to load correctly but the **web app never gets past “thinking”** and **simulation does not move**, first verify that **ROS2 and the action servers are actually responding**.
+
+1. From the `ada_feeding/ada_feeding` directory, run the following tests (from the original PRL README):
+
+   ```bash
+   ros2 action send_goal /MoveAbovePlate ada_feeding_msgs/action/MoveTo "{}" --feedback
+   ros2 action send_goal /AcquireFood ada_feeding_msgs/action/AcquireFood "{header: {stamp: {sec: 0, nanosec: 0}, frame_id: ''}, detected_food: {roi: {x_offset: 0, y_offset: 0, height: 0, width: 0, do_rectify: false}, mask: {header: {stamp: {sec: 0, nanosec: 0}, frame_id: ''}, format: '', data: []}, item_id: '', confidence: 0.0}}" --feedback
+   ros2 action send_goal /MoveToRestingPosition ada_feeding_msgs/action/MoveTo "{}" --feedback
+   ros2 action send_goal /MoveToStagingConfiguration ada_feeding_msgs/action/MoveTo "{}" --feedback
+   ros2 action send_goal /MoveToMouth ada_feeding_msgs/action/MoveToMouth "{}" --feedback
+   ros2 action send_goal /MoveFromMouth ada_feeding_msgs/action/MoveTo "{}" --feedback
+   ros2 action send_goal /MoveToStowLocation ada_feeding_msgs/action/MoveTo "{}" --feedback
+````
+
+If these actions return feedback, then **MoveIt + ROS2 + simulation are working correctly**.
+
+Next steps:
+
+* If running the **Web App locally**, try clearing your browser cache:
+
+  * Open browser history
+  * Delete cached data
+  * Restart the program
+
+This often resolves the web app getting stuck after successful ROS2 startup.
 
 ```
+
+---
