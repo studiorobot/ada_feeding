@@ -821,7 +821,6 @@ rm -rf ~/.moveit
 ```
 ---
 
-````markdown
 ## Web App Stuck on “Robot is Thinking”
 
 If everything seems to load correctly but the **web app never gets past “thinking”** and **simulation does not move**, first verify that **ROS2 and the action servers are actually responding**.
@@ -836,7 +835,7 @@ If everything seems to load correctly but the **web app never gets past “think
    ros2 action send_goal /MoveToMouth ada_feeding_msgs/action/MoveToMouth "{}" --feedback
    ros2 action send_goal /MoveFromMouth ada_feeding_msgs/action/MoveTo "{}" --feedback
    ros2 action send_goal /MoveToStowLocation ada_feeding_msgs/action/MoveTo "{}" --feedback
-````
+  ```
 
 If these actions return feedback, then **MoveIt + ROS2 + simulation are working correctly**.
 
@@ -849,7 +848,5 @@ Next steps:
   * Restart the program
 
 This often resolves the web app getting stuck after successful ROS2 startup.
-
-```
 
 ---
