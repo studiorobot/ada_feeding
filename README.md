@@ -12,6 +12,7 @@ Regarding Gen3 functionality, at this stage you can only control motion plans fo
 - The Robot Studio GitHub repo is linked [here](https://github.com/studiorobot/ada_feeding/tree/ros2-devel).  
 - These steps are edited from the original Personal Robotics Lab’s `ada_feeding` setup, which can be found [here](https://github.com/personalrobotics/ada_feeding) or within the `PRsetup` folder.  
 - Replace all instances of `YOUR_WORKSPACE_PATH` with your actual workspace directory.
+- If working from the shared directory, make sure you are sourcing the correct settings for Cyclone DDS. Follow Step 9 below.
 
 ## Table of Contents
 1. Installing Virtual Ubuntu 22.04
@@ -31,7 +32,7 @@ Regarding Gen3 functionality, at this stage you can only control motion plans fo
 
 ---
 
-## 1. Installing Virtual Ubuntu 22.04
+## 1. Installing Virtual Ubuntu 22.04 (only for WSL)
 
 ### Overview
 Ensure your environment runs **Ubuntu 22.04**, either natively or through WSL for Windows users.
@@ -346,17 +347,23 @@ unset CYCLONEDDS_URI
 
 ## 10. Build Your Workspace
 
-> Note: Currently, communication with hardware is not set up. Therefore, the following command will only build the packages needed for simulation 
+> Note: At this stage, you should have multiple repositories cloned into your workspace. One of these repositories is ada_ros2.
+
+- If you want to run the Gen2 simulation, switch to the `Jaco2` branch of the `ada_ros2` repo.
+- If you want to run the Gen3 simulation, use the `main` branch instead.
+
+Be aware that the ada_feeding setup is not fully compatible with Gen3 yet: the arm will appear in the system, but it won’t execute the full program because the Gen3 integration still needs updates.
+Recommendation:
+Start by building and testing everything on the `Jaco2` branch (Gen2), confirm that it runs correctly, and then move on to Gen3 once you have a working baseline.
+
+Note: Currently, communication with hardware is not set up. Therefore, the following command will only build the packages needed for simulation 
 
 ```bash
 cd ~/YOUR_WORKSPACE_PATH
 colcon build --symlink-install --packages-skip KinovaExample ada_hardware
-```
-
-> To build all packages (if hardware is ready):
-
-```bash
-colcon build --symlink-install
+# Currently, hardware is not set up so do not build those packages
+# Otherwise, use following command to build all
+# colcon build --symlink-install 
 ```
 
 ---
@@ -533,7 +540,7 @@ To run the Gen 3 robot in simulation, temporarily switch the description files i
    view_robot.gen3.txt → view_robot.rviz
    ```
 
-> This swaps in the Gen 3 description while preserving Jaco2 files. Currently working on a way to do this without having to switch config files between Jaco2 vs Gen3. 
+> This swaps in the Gen 3 description while preserving Jaco2 files. Currently working on a way to do this without having to switch config files between Jaco2 vs Gen3. ** Not completely sure, but if you switch and build the respective branch in ada_ros2 (jaco2 vs gen3), you may not have to change the previous file names. Read through those files and confirm the correct robot is being sourced.
 
 ### After Switching Files
 
