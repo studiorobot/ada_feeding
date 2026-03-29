@@ -153,7 +153,8 @@ class MoveFromMouthTree(MoveToTree):
         self.staging_configuration_quat_xyzw = staging_configuration_quat_xyzw
         self.end_configuration = end_configuration
         if self.end_configuration is not None:
-            assert len(self.end_configuration) == 6, "Must provide 6 joint positions"
+            assert len(self.end_configuration) == 7 or len(self.end_configuration) == 6, "Must provide 7 joint positions" #eivanac edit
+            #assert len(self.end_configuration) == 6, "Must provide 6 joint positions"
         self.staging_configuration_tolerance_position = (
             staging_configuration_tolerance_position
         )
@@ -218,7 +219,8 @@ class MoveFromMouthTree(MoveToTree):
 
         ### Define tree logic
 
-        base_link = "j2n6s200_link_base"
+        base_link = "ada_base_link" #eivanac edit
+        #base_link = "j2n6s200_base_link"
 
         # The tree may or may not have orientation path constraints active
         def get_staging_path_constraints() -> py_trees.behaviour.Behaviour:

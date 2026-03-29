@@ -53,6 +53,10 @@ def retry_call_ros_service(
         this must be None.
     max_retries: The maximum number of retries.
     wait_for_server_timeout_sec: The timeout for waiting for the server to be
+        available. Negative values result in a blocking but periodic check
+        (default: -3.0, meaning check every 3s until available). Use 0.0 to
+        skip the availability check entirely (not recommended, as it silently
+        allows startup even when services are missing).
         available.
     server_execution_timeout_sec: The timeout for the server to execute the request. If
         <= 0.0, no timeout is set.

@@ -42,7 +42,7 @@ class StopServoTree(TriggerTree):
     def __init__(
         self,
         node: Node,
-        base_frame_id: str = "j2n6s200_link_base",
+        base_frame_id: str = "ada_link_base",
         servo_controller_name: str = "jaco_arm_servo_controller",
         delay: float = 0.5,
         stop_moveit_servo: bool = True,

@@ -27,6 +27,7 @@ from rclpy.action.server import ServerGoalHandle
 from rclpy.callback_groups import MutuallyExclusiveCallbackGroup
 from rclpy.duration import Duration
 from rclpy.node import Node
+from rclpy.qos import QoSProfile, DurabilityPolicy, ReliabilityPolicy
 from sensor_msgs.msg import JointState
 from shape_msgs.msg import SolidPrimitive
 from tf2_geometry_msgs import PoseStamped
@@ -123,7 +124,11 @@ class WorkspaceWalls:
                     JointState,
                     "~/joint_states",
                     self.__joint_states_callback,
-                    1,
+                    QoSProfile(
+                        depth=1,
+                        durability=DurabilityPolicy.VOLATILE,
+                        reliability=ReliabilityPolicy.RELIABLE
+                    ),
                     callback_group=MutuallyExclusiveCallbackGroup(),
                 )
 

@@ -19,6 +19,7 @@ from rclpy.callback_groups import MutuallyExclusiveCallbackGroup
 from rclpy.duration import Duration
 from rclpy.executors import MultiThreadedExecutor
 from rclpy.node import Node
+from rclpy.qos import QoSProfile, DurabilityPolicy, ReliabilityPolicy
 from rclpy.time import Time
 from sensor_msgs.msg import JointState
 from tf2_geometry_msgs import PoseStamped
@@ -62,7 +63,11 @@ class RobotStateService(Node):
             JointState,
             "/joint_states",
             self.joint_states_callback,
-            1,
+            QoSProfile(
+                depth=1,
+                durability=DurabilityPolicy.VOLATILE,
+                reliability=ReliabilityPolicy.RELIABLE
+            ),
             callback_group=MutuallyExclusiveCallbackGroup(),
         )
 

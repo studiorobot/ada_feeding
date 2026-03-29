@@ -94,7 +94,7 @@ class MoveIt2Plan(BlackboardBehavior):
         ignore_violated_path_constraints: Union[BlackboardKey, bool] = False,
         pipeline_id: Union[BlackboardKey, str] = "ompl",
         planner_id: Union[BlackboardKey, str] = "RRTstarkConfigDefault",
-        allowed_planning_time: Union[BlackboardKey, float] = 0.5,
+        allowed_planning_time: Union[BlackboardKey, float] = 10.0,
         max_velocity_scale: Union[BlackboardKey, float] = 0.1,
         max_acceleration_scale: Union[BlackboardKey, float] = 0.1,
         cartesian: Union[BlackboardKey, bool] = False,
@@ -249,6 +249,20 @@ class MoveIt2Plan(BlackboardBehavior):
             self.logger.debug("TF is locked")
             return py_trees.common.Status.RUNNING
         with self.moveit2_lock, self.tf_lock:
+            # Wait for the first joint state message before trying to evaluate goal constraints.
+            # If joint state is not yet available, keep running so we don't prematurely fail.
+            if self.moveit2.joint_state is None:
+                self.logger.warning("Waiting for joint state", once=True)
+                return py_trees.common.Status.RUNNING
+            
+            # DEBUG: Log joint state info to help diagnose timeout issues
+            joint_names = list(self.moveit2.joint_state.name) if self.moveit2.joint_state else []
+            self.logger.info(
+                f"[DEBUG] Joint state received with {len(joint_names)} joints: {joint_names[:3]}... "
+                f"(showing first 3 of {len(joint_names)})",
+                once=True
+            )
+
             ### Check if plan done
             if self.planning_future is not None:
                 if self.planning_future.done():
@@ -304,6 +318,8 @@ class MoveIt2Plan(BlackboardBehavior):
                             self.blackboard_set(
                                 "error_code", MoveIt2PlanErrorCode.PATH_LEN
                             )
+                            error_code = self.blackboard_get("error_code")
+                            self.logger.error(f"Planning failed with error_code={error_code.name} (value={error_code.value})")
                             return py_trees.common.Status.FAILURE
                     if (
                         self.blackboard_exists("max_path_len_joint")
@@ -479,10 +495,22 @@ class MoveIt2Plan(BlackboardBehavior):
             ### Begin Planning
             # pylint: disable=attribute-defined-outside-init
             try:
+                self.logger.debug("MoveIt2Plan: calling plan_async")
                 self.planning_future = self.moveit2.plan_async(
                     cartesian=self.blackboard_get("cartesian"),
                     max_step=self.blackboard_get("cartesian_max_step"),
                     start_joint_state=self.blackboard_get("start_joint_state"),
+                )
+                if self.planning_future is None:
+                    # This can happen if MoveIt2's planning service isn't yet available.
+                    # We'll keep retrying, but log once so it's easier to debug.
+                    self.logger.warning(
+                        "MoveIt2 plan_async returned None (service not available?)", once=True
+                    )
+                    return py_trees.common.Status.RUNNING
+
+                self.logger.debug(
+                    f"MoveIt2Plan: got planning_future={self.planning_future}"
                 )
                 return py_trees.common.Status.RUNNING
             except IndexError as error:
@@ -502,7 +530,7 @@ class MoveIt2Plan(BlackboardBehavior):
 
     @staticmethod
     def get_path_len(
-        path: JointTrajectory, exclude_j6: bool = True
+        path: JointTrajectory, exclude_j7: bool = True
     ) -> Tuple[float, Dict[str, float]]:
         """
         Get the integrated path length of a trajectory in trajectory units.
@@ -513,7 +541,7 @@ class MoveIt2Plan(BlackboardBehavior):
 
         Parameters
         ----------
-        exclude_j6: If True, exclude the last joint from the path length calculation. This is
+        exclude_j7: If True, exclude the last joint from the path length calculation. This is
             because the last joint doesn't cause swivels, which is what we want to avoid.
 
         Returns:
@@ -530,20 +558,20 @@ class MoveIt2Plan(BlackboardBehavior):
         if len(path.points) == 0:
             return total_len, joint_lens
 
-        j6_i = None
-        if exclude_j6 and "j2n6s200_joint_6" in path.joint_names:
-            j6_i = path.joint_names.index("j2n6s200_joint_6")
+        j7_i = None
+        if exclude_j7 and "ada_joint_7" in path.joint_names:
+            j7_i = path.joint_names.index("ada_joint_7")
 
         prev_pos = np.array(path.points[0].positions)
         for point in path.points:
             curr_pos = np.array(point.positions)
             seg_len = np.abs(curr_pos - prev_pos)
             seg_len = np.minimum(seg_len, 2 * np.pi - seg_len)
-            if j6_i is not None:
-                j6_len = seg_len[j6_i]
-                seg_len[j6_i] = 0.0
+            if j7_i is not None:
+                j7_len = seg_len[j7_i]
+                seg_len[j7_i] = 0.0
                 total_len += np.linalg.norm(seg_len)
-                seg_len[j6_i] = j6_len
+                seg_len[j7_i] = j7_len
             else:
                 total_len += np.linalg.norm(seg_len)
             for index, name in enumerate(path.joint_names):
@@ -635,7 +663,14 @@ class MoveIt2Plan(BlackboardBehavior):
         curr_positions = curr_positions[: len(des_positions)]
         diff = np.fabs(np.array(curr_positions) - np.array(des_positions))
 
-        return np.all(diff < tol)
+        result = np.all(diff < tol)
+        # DEBUG LOGGING
+        self.logger.info(f"[DEBUG JointConstraint] Desired: {des_positions}")
+        self.logger.info(f"[DEBUG JointConstraint] Current: {curr_positions}")
+        self.logger.info(f"[DEBUG JointConstraint] Diff: {diff}")
+        self.logger.info(f"[DEBUG JointConstraint] Tolerance: {tol}")
+        self.logger.info(f"[DEBUG JointConstraint] Satisfied: {result}")
+        return result
 
     def position_constraint_satisfied(self, constraint_kwargs: Dict[str, Any]) -> bool:
         """

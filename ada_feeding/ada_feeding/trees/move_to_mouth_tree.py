@@ -376,7 +376,7 @@ class MoveToMouthTree(MoveToTree):
                             name=name + " GetCachedFaceDetection",
                             ns=name,
                             inputs={
-                                "target_frame": "j2n6s200_link_base",
+                                "target_frame": "ada_link_base",
                                 "source_frame": "mouth",
                                 "new_type": PoseStamped,
                             },
@@ -424,7 +424,7 @@ class MoveToMouthTree(MoveToTree):
                                 ),
                             ),
                         ),
-                        "target_frame": "j2n6s200_link_base",
+                        "target_frame": "ada_link_base",
                     },
                     outputs={
                         "transformed_msg": BlackboardKey("goal_pose"),  # PoseStamped

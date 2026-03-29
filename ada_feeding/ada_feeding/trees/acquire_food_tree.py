@@ -160,13 +160,17 @@ class AcquireFoodTree(MoveToTree):
 
         # The max amount that each joint can move for any computed plan. Intended
         # to reduce swivels.
+        #eivanac edit
         max_path_len_joint = {
-            "j2n6s200_joint_1": np.pi * 5.0 / 6.0,
-            "j2n6s200_joint_2": np.pi / 2.0,
+            #"j2n6s200_joint_1": np.pi * 5.0 / 6.0,
+            #"j2n6s200_joint_2": np.pi / 2.0,
+            "ada_joint_1": np.pi * 5.0 / 6.0,
+            "ada_joint_2": np.pi / 2.0,
         }
 
         # Get the base lin to publish servo commands in
-        base_link = "j2n6s200_link_base"
+        #base_link = "j2n6s200_link_base"
+        base_link = "ada_link_base" #eivanac edit
 
         ### Add Resting Position
         resting_position_behaviors = []

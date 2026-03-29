@@ -333,7 +333,7 @@ def main(out_dir: Optional[str]):
         joint_names=kinova.joint_names(),
         base_link_name=kinova.base_link_name(),
         end_effector_name="forkTip",
-        group_name="jaco_arm",
+        group_name="manipulator",
         callback_group=callback_group,
     )
 

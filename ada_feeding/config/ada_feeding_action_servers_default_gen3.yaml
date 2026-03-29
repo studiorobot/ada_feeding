@@ -1,0 +1,256 @@
+ada_feeding_action_servers:
+  ros__parameters:
+    default:
+      AcquireFood:
+        action_type: ada_feeding_msgs.action.AcquireFood
+        tick_rate: 10
+        tree_class: ada_feeding.trees.AcquireFoodTree
+        tree_kwargs:
+          joint_positions:
+          - 0.6961213752837262
+          - -2.7955678369489974
+          - 0.8295947161167505
+          - 0.02077337760051298
+          - 2.4121226758048824
+          - -1.2598119891101343
+          - 2.5244498330446956
+          max_velocity_scaling_move_above: 1.0
+          max_velocity_scaling_move_into: 1.0
+          max_velocity_scaling_to_resting_configuration: 1.0
+          resting_joint_positions:
+          - -1.94672
+          - 2.51268
+          - 0.35653
+          - -4.76501
+          - 5.99991
+          - 4.99555
+        tree_kws:
+        - resting_joint_positions
+        - max_velocity_scaling_move_above
+        - max_velocity_scaling_move_into
+        - max_velocity_scaling_to_resting_configuration
+      ActivateController:
+        action_type: ada_feeding_msgs.action.ActivateController
+        tick_rate: 10
+        tree_class: ada_feeding.trees.ActivateControllerTree
+      MoveAbovePlate:
+        action_type: ada_feeding_msgs.action.MoveTo
+        tick_rate: 10
+        tree_class: ada_feeding.trees.MoveToConfigurationWithFTThresholdsTree
+        tree_kwargs:
+          f_mag: 4.0
+          joint_positions:
+          - -0.4531949403382304
+          - -2.1441456722737864
+          - 0.18412724670041725
+          - 0.0037875856819366144
+          - 0.42307797368194944
+          - 0.04382748994180118
+          - -0.08962368626374963
+          max_velocity_scaling_factor: 1.0
+          toggle_watchdog_listener: false
+        tree_kws:
+        - joint_positions
+        - toggle_watchdog_listener
+        - f_mag
+        - max_velocity_scaling_factor
+      MoveFromMouth:
+        action_type: ada_feeding_msgs.action.MoveTo
+        tick_rate: 10
+        tree_class: ada_feeding.trees.MoveFromMouthTree
+        tree_kwargs:
+          cartesian_jump_threshold_to_staging_configuration: 2.0
+          cartesian_max_step_to_staging_configuration: 0.01
+          linear_speed_near_mouth: 0.08
+          max_linear_speed_to_staging_configuration: 0.15
+          max_velocity_scaling_factor_to_end_configuration: 1.0
+          max_velocity_scaling_factor_to_staging_configuration: 0.6
+          staging_configuration_position:
+          - 0.28323
+          - 0.07289
+          - 0.69509
+          staging_configuration_quat_xyzw:
+          - 0.00472
+          - 0.69757
+          - 0.71645
+          - -0.00811
+        tree_kws:
+        - staging_configuration_position
+        - staging_configuration_quat_xyzw
+        - max_linear_speed_to_staging_configuration
+        - linear_speed_near_mouth
+        - max_velocity_scaling_factor_to_staging_configuration
+        - max_velocity_scaling_factor_to_end_configuration
+        - cartesian_jump_threshold_to_staging_configuration
+        - cartesian_max_step_to_staging_configuration
+      MoveToConfiguration:
+        action_type: ada_feeding_msgs.action.MoveToConfiguration
+        tick_rate: 10
+        tree_class: ada_feeding.trees.MoveToConfigurationWithFTThresholdsTree
+        tree_kwargs:
+          f_mag: 4.0
+          max_velocity_scaling_factor: 1.0
+          toggle_watchdog_listener: false
+          allowed_planning_time: 10.0
+        tree_kws:
+        - toggle_watchdog_listener
+        - f_mag
+        - max_velocity_scaling_factor
+      MoveToMouth:
+        action_type: ada_feeding_msgs.action.MoveToMouth
+        tick_rate: 10
+        tree_class: ada_feeding.trees.MoveToMouthTree
+        tree_kwargs:
+          face_detection_msg_timeout: 10.0
+          face_detection_timeout: 5.0
+          fork_target_orientation_from_mouth:
+          - 0.5
+          - -0.5
+          - -0.5
+          - 0.5
+          linear_speed_near_mouth: 0.06
+          max_linear_speed: 0.15
+          plan_distance_from_mouth:
+          - 0.025
+          - 0.0
+          - -0.01
+        tree_kws:
+        - face_detection_msg_timeout
+        - face_detection_timeout
+        - fork_target_orientation_from_mouth
+        - plan_distance_from_mouth
+        - max_linear_speed
+        - linear_speed_near_mouth
+      MoveToRestingPosition:
+        action_type: ada_feeding_msgs.action.MoveTo
+        tick_rate: 10
+        tree_class: ada_feeding.trees.MoveToConfigurationWithWheelchairWallTree
+        tree_kwargs:
+          allowed_planning_time: 1.0
+          #goal_configuration:
+          #- -1.94672
+          #- 2.51268
+          #- 0.35653
+          #- -4.76501
+          #- 5.99991
+          #- 4.99555
+          goal_configuration:
+          - 0.6961213752837262
+          - -2.7955678369489974
+          - 0.8295947161167505
+          - 0.02077337760051298
+          - 2.4121226758048824
+          - -1.2598119891101343
+          - 2.5244498330446956
+          max_velocity_scaling_factor: 1.0
+          orientation_constraint_quaternion:
+          - 0.707168
+          - 0.0
+          - 0.0
+          - 0.707168
+          orientation_constraint_tolerances:
+          - 0.6
+          - 3.14159
+          - 0.5
+        tree_kws:
+        - goal_configuration
+        - allowed_planning_time
+        - max_velocity_scaling_factor
+      MoveToStagingConfiguration:
+        action_type: ada_feeding_msgs.action.MoveTo
+        tick_rate: 10
+        tree_class: ada_feeding.trees.MoveToConfigurationWithWheelchairWallTree
+        tree_kwargs:
+          allowed_planning_time: 1.0
+          #goal_configuration:
+          #- -2.32526
+          #- 4.456298
+          #- 4.16769
+          #- 1.53262
+          #- -2.18359
+          #- -2.19525
+          goal_configuration:
+          - -0.2096330754600292
+          - -3.1866581005397836
+          - 0.9290675763442989
+          - 6.033951648461383
+          - -0.13146354982543001
+          - -2.8630205170479375
+          - 1.0117605801483567
+          max_velocity_scaling_factor: 1.0
+          orientation_constraint_quaternion:
+          - 0.707168
+          - 0.0
+          - 0.0
+          - 0.707168
+          orientation_constraint_tolerances:
+          - 0.6
+          - 3.14159
+          - 0.5
+        tree_kws:
+        - goal_configuration
+        - allowed_planning_time
+        - max_velocity_scaling_factor
+      MoveToStowLocation:
+        action_type: ada_feeding_msgs.action.MoveTo
+        tick_rate: 10
+        tree_class: ada_feeding.trees.MoveToConfigurationWithFTThresholdsTree
+        tree_kwargs:
+          f_mag: 4.0
+          joint_positions:
+          - 1.2646761278377534
+          - -2.8195690048655204
+          - 0.7951299865112885
+          - 0.020092979059466783
+          - 2.442450438266894
+          - -1.8241582615253116
+          - 1.9624306588322797
+          max_velocity_scaling_factor: 1.0
+          toggle_watchdog_listener: false
+        tree_kws:
+        - joint_positions
+        - toggle_watchdog_listener
+        - f_mag
+        - max_velocity_scaling_factor
+      StartServo:
+        action_type: ada_feeding_msgs.action.Trigger
+        tick_rate: 10
+        tree_class: ada_feeding.trees.StartServoTree
+      StopServo:
+        action_type: ada_feeding_msgs.action.Trigger
+        tick_rate: 10
+        tree_class: ada_feeding.trees.StopServoTree
+      TestMoveToPose:
+        action_type: ada_feeding_msgs.action.MoveTo
+        tick_rate: 10
+        tree_class: ada_feeding.trees.MoveToPoseTree
+        tree_kwargs:
+          max_velocity_scaling_factor: 1.0
+          position:
+          - 0.28323
+          - 0.07289
+          - 0.69509
+          quat_xyzw:
+          - 0.00472
+          - 0.69757
+          - 0.71645
+          - -0.00811
+        tree_kws:
+        - position
+        - quat_xyzw
+        - max_velocity_scaling_factor
+      planning_scene_namespace_to_use: seated
+      server_names:
+      - MoveAbovePlate
+      - AcquireFood
+      - MoveToRestingPosition
+      - MoveToStagingConfiguration
+      - MoveToMouth
+      - MoveFromMouth
+      - MoveToStowLocation
+      - TestMoveToPose
+      - StartServo
+      - StopServo
+      - ActivateController
+      - MoveToConfiguration
+    watchdog_timeout_sec: 0.5

@@ -265,7 +265,7 @@ async def main(args: argparse.Namespace, pwd: str) -> None:
                 ),
             ],
             "moveit": [
-                "ros2 launch ada_planning_scene ada_moveit_kortex_launch.xml sim:=mock"
+                "ros2 launch ada_planning_scene ada_moveit_kortex_launch.xml sim:=mock_kortex"
             ],
             "browser": [
                 "cd ./src/feeding_web_interface/feedingwebapp",

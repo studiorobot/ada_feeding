@@ -115,6 +115,7 @@ class MoveToConfigurationWithFTThresholdsTree(MoveToTree):
 
         # Store the parameters for the joint goal constraint
         self.joint_positions = joint_positions
+        #print(joint_positions)
         self.tolerance_joint = tolerance_joint
         self.weight_joint = weight_joint
         self.pipeline_id = pipeline_id
@@ -167,6 +168,7 @@ class MoveToConfigurationWithFTThresholdsTree(MoveToTree):
                     ns=name,
                     inputs={
                         "joint_positions": BlackboardKey("joint_positions"),
+                        "joint_names": None,
                         "tolerance": self.tolerance_joint,
                         "weight": self.weight_joint,
                     },
@@ -176,8 +178,7 @@ class MoveToConfigurationWithFTThresholdsTree(MoveToTree):
                 ),
                 py_trees.decorators.Timeout(
                     name="MoveIt2PlanTimeout",
-                    # Increase allowed_planning_time to account for ROS2 overhead and MoveIt2 setup and such
-                    duration=10.0 * self.allowed_planning_time,
+                    duration=max(10.0, 20.0 * self.allowed_planning_time),
                     child=MoveIt2Plan(
                         name="MoveToConfigurationPlan",
                         ns=name,
@@ -265,8 +266,11 @@ class MoveToConfigurationWithFTThresholdsTree(MoveToTree):
                 self.joint_positions is not None
             ), "For action MoveTo, must provide hardcoded joint_positions"
             assert (
-                len(self.joint_positions) == 6
-            ), "For action MoveTo, must provide 6 joint positions"
+                len(self.joint_positions) == 7 or len(self.joint_positions) == 6
+            ), "For action MoveTo, must provide 7 joint positions" #eivanac edit
+            #assert (
+            #    len(self.joint_positions) == 6
+            #), "For action MoveTo, must provide 6 joint positions" #eivanac edit
 
         # Adds MoveToVisitor for Feedback
         return super().send_goal(tree, goal)
