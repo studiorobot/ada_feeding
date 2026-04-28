@@ -329,8 +329,8 @@ class WorkspaceWalls:
             "fixed_joint_names",
             [
                 "robot_tilt",
-                "j2n6s200_joint_finger_1",
-                "j2n6s200_joint_finger_2",
+                "ada_joint_finger_1",
+                "ada_joint_finger_2",
             ],  # default value
             ParameterDescriptor(
                 name="fixed_joint_names",
@@ -360,12 +360,13 @@ class WorkspaceWalls:
         articulated_joint_names = self.__node.declare_parameter(
             "articulated_joint_names",
             [
-                "j2n6s200_joint_1",
-                "j2n6s200_joint_2",
-                "j2n6s200_joint_3",
-                "j2n6s200_joint_4",
-                "j2n6s200_joint_5",
-                "j2n6s200_joint_6",
+                "ada_joint_1",
+                "ada_joint_2",
+                "ada_joint_3",
+                "ada_joint_4",
+                "ada_joint_5",
+                "ada_joint_6",
+                "ada_joint_7",
             ],  # default value
             ParameterDescriptor(
                 name="articulated_joint_names",

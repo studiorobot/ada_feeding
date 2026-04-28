@@ -1105,6 +1105,9 @@ class CreateActionServers(Node):
                             self.get_logger().info(
                                 f"Tree failed at behavior {names_of_failed_behavior}"
                             )
+                            self.get_logger().info( #which type of failure status for debugging
+                                f"{node.status}"
+                            )
                             goal_handle.abort()
                             try:
                                 result = tree_action_server.get_result(

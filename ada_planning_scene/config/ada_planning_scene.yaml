@@ -304,8 +304,8 @@ ada_planning_scene:
     # These are used when computing the bounds of different robot arm configurationss.
     fixed_joint_names:
       - robot_tilt
-      - j2n6s200_joint_finger_1
-      - j2n6s200_joint_finger_2
+      - ada_joint_finger_1
+      - ada_joint_finger_2
     fixed_joint_values:
       - 0.0
       - 1.33 # closed around fork handle
@@ -314,12 +314,13 @@ ada_planning_scene:
     # The names of the articulated joints. The values in the configurations above
     # must have the same length as this list, and have the same order.
     articulated_joint_names:
-      - j2n6s200_joint_1
-      - j2n6s200_joint_2
-      - j2n6s200_joint_3
-      - j2n6s200_joint_4
-      - j2n6s200_joint_5
-      - j2n6s200_joint_6
+      - ada_joint_1
+      - ada_joint_2
+      - ada_joint_3
+      - ada_joint_4
+      - ada_joint_5
+      - ada_joint_6
+      - ada_joint_7
 
     ############################################################################
     # Parameters related to the UpdateFromFaceDetectionpace class

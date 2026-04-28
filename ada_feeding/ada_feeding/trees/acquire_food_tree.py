@@ -170,7 +170,7 @@ class AcquireFoodTree(MoveToTree):
 
         # Get the base lin to publish servo commands in
         #base_link = "j2n6s200_link_base"
-        base_link = "ada_link_base" #eivanac edit
+        base_link = "ada_base_link" #eivanac edit
 
         ### Add Resting Position
         resting_position_behaviors = []

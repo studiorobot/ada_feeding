@@ -357,14 +357,13 @@ def get_moveit2_object(
         blackboard.register_key(moveit2_lock_blackboard_key, Access.WRITE)
         # TODO: Assess whether ReentrantCallbackGroup is necessary for MoveIt2.
         callback_group = ReentrantCallbackGroup()
-        # For our Kinova setup (j2n6s200), the arm has 6 joints.
-        # Use a prefix consistent with the joint state publisher.
-        prefix = kinova.get_prefix(arm_dof=7)
+        # For the ADA robot (Gen3 7DOF), use the "ada_" prefix instead of kinova defaults
+        # Note: The joint names must match what's published on /joint_states
         moveit2 = MoveIt2(
             node=node,
-            joint_names=kinova.joint_names(prefix=prefix),
-            base_link_name=kinova.base_link_name(prefix=prefix),
-            end_effector_name=kinova.end_effector_name(prefix=prefix),
+            joint_names=[f"ada_joint_{i}" for i in range(1, 8)],
+            base_link_name="ada_base_link",
+            end_effector_name="forkTip",
             group_name="manipulator",
             callback_group=callback_group,
         )

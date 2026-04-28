@@ -186,7 +186,7 @@ def servo_until_pose(
         0.3,
     ),
     round_decimals: Optional[int] = 3,
-    base_link: str = "j2n6s200_link_base",
+    base_link: str = "ada_base_link",
     ignore_orientation: bool = False,
     subscribe_to_servo_status: bool = True,
     pub_topic: str = "~/servo_twist_cmds",

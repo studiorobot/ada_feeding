@@ -28,7 +28,7 @@ ada_planning_scene:
       - bedside
       - seated_90
       - bedside_90
-    namespace_to_use: bedside_90
+    namespace_to_use: bedside
 
     ############################################################################
     # Parameters related to the PlanningSceneInitializer class

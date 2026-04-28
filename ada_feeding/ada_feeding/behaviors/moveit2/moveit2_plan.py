@@ -252,7 +252,11 @@ class MoveIt2Plan(BlackboardBehavior):
             # Wait for the first joint state message before trying to evaluate goal constraints.
             # If joint state is not yet available, keep running so we don't prematurely fail.
             if self.moveit2.joint_state is None:
-                self.logger.warning("Waiting for joint state", once=True)
+                # DEBUG: Log what joints pymoveit2 is expecting
+                self.logger.warning(
+                    f"Waiting for joint state. MoveIt2 expects joints: {self.moveit2.joint_names}",
+                    throttle_duration_sec=2.0
+                )
                 return py_trees.common.Status.RUNNING
             
             # DEBUG: Log joint state info to help diagnose timeout issues

@@ -53,7 +53,7 @@ class Benchmark:
             -0.2783553055166875,
             0.22773121634396466,
         ),
-        base_position_frame: str = "j2n6s200_link_base",
+        base_position_frame: str = "ada_base_link",
         planners: tuple[str] = (
             "AnytimePathShortening",
             "RRTConnectkConfigDefault",
@@ -238,8 +238,8 @@ class Benchmark:
         self,
         max_path_len: float = 10.0,
         max_path_len_joint: dict[str, float] = {
-            "j2n6s200_joint_1": np.pi * 5.0 / 6.0,
-            "j2n6s200_joint_2": np.pi / 2.0,
+            "ada_joint_1": np.pi * 5.0 / 6.0,
+            "ada_joint_2": np.pi / 2.0,
         },
     ):
         """

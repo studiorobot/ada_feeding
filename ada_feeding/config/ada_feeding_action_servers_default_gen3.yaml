@@ -7,13 +7,13 @@ ada_feeding_action_servers:
         tree_class: ada_feeding.trees.AcquireFoodTree
         tree_kwargs:
           joint_positions:
-          - 0.6961213752837262
-          - -2.7955678369489974
-          - 0.8295947161167505
-          - 0.02077337760051298
-          - 2.4121226758048824
-          - -1.2598119891101343
-          - 2.5244498330446956
+          - 3.7584342379702265
+          - -3.0680026297628116
+          - 0.11208646011532394
+          - 0.00303070749096387
+          - -0.05027405112606054
+          - -1.7464533479809023
+          - -2.085948872615267
           max_velocity_scaling_move_above: 1.0
           max_velocity_scaling_move_into: 1.0
           max_velocity_scaling_to_resting_configuration: 1.0
@@ -40,13 +40,13 @@ ada_feeding_action_servers:
         tree_kwargs:
           f_mag: 4.0
           joint_positions:
-          - -0.4531949403382304
-          - -2.1441456722737864
-          - 0.18412724670041725
-          - 0.0037875856819366144
-          - 0.42307797368194944
-          - 0.04382748994180118
-          - -0.08962368626374963
+          - -0.38154221176943864
+          - -2.6442809484504473
+          - 1.1181369283438862
+          - 0.024664264415837685
+          - 2.1480679053200373
+          - -1.3870637228141465
+          - -1.071020326898642
           max_velocity_scaling_factor: 1.0
           toggle_watchdog_listener: false
         tree_kws:
@@ -91,7 +91,6 @@ ada_feeding_action_servers:
           f_mag: 4.0
           max_velocity_scaling_factor: 1.0
           toggle_watchdog_listener: false
-          allowed_planning_time: 10.0
         tree_kws:
         - toggle_watchdog_listener
         - f_mag
@@ -127,21 +126,21 @@ ada_feeding_action_servers:
         tree_class: ada_feeding.trees.MoveToConfigurationWithWheelchairWallTree
         tree_kwargs:
           allowed_planning_time: 1.0
-          #goal_configuration:
-          #- -1.94672
-          #- 2.51268
-          #- 0.35653
-          #- -4.76501
-          #- 5.99991
-          #- 4.99555
           goal_configuration:
-          - 0.6961213752837262
-          - -2.7955678369489974
-          - 0.8295947161167505
-          - 0.02077337760051298
-          - 2.4121226758048824
-          - -1.2598119891101343
-          - 2.5244498330446956
+          - -1.94672
+          - 2.51268
+          - 0.35653
+          - -4.76501
+          - 5.99991
+          - 4.99555
+          joint_positions:
+          - 3.7584342379702265
+          - -3.0680026297628116
+          - 0.11208646011532394
+          - 0.00303070749096387
+          - -0.05027405112606054
+          - -1.7464533479809023
+          - -2.085948872615267
           max_velocity_scaling_factor: 1.0
           orientation_constraint_quaternion:
           - 0.707168
@@ -162,21 +161,21 @@ ada_feeding_action_servers:
         tree_class: ada_feeding.trees.MoveToConfigurationWithWheelchairWallTree
         tree_kwargs:
           allowed_planning_time: 1.0
-          #goal_configuration:
-          #- -2.32526
-          #- 4.456298
-          #- 4.16769
-          #- 1.53262
-          #- -2.18359
-          #- -2.19525
           goal_configuration:
-          - -0.2096330754600292
-          - -3.1866581005397836
-          - 0.9290675763442989
-          - 6.033951648461383
-          - -0.13146354982543001
-          - -2.8630205170479375
-          - 1.0117605801483567
+          - -2.32526
+          - 4.456298
+          - 4.16769
+          - 1.53262
+          - -2.18359
+          - -2.19525
+          joint_positions:
+          - -0.34364307728668453
+          - -2.621612844118122
+          - -0.019451526899020067
+          - -0.0007478863155584548
+          - -2.961872137853919
+          - 2.256032732630817
+          - -1.0554859623695632
           max_velocity_scaling_factor: 1.0
           orientation_constraint_quaternion:
           - 0.707168
@@ -198,13 +197,13 @@ ada_feeding_action_servers:
         tree_kwargs:
           f_mag: 4.0
           joint_positions:
-          - 1.2646761278377534
-          - -2.8195690048655204
-          - 0.7951299865112885
-          - 0.020092979059466783
-          - 2.442450438266894
-          - -1.8241582615253116
-          - 1.9624306588322797
+          - -1.8097409330951433
+          - -3.034236319518189
+          - -0.5886060906556563
+          - -0.01662584917147908
+          - -2.3607675332619724
+          - 1.924388137639693
+          - 0.4534271435389849
           max_velocity_scaling_factor: 1.0
           toggle_watchdog_listener: false
         tree_kws:
