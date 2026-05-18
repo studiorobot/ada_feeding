@@ -34,7 +34,7 @@ class ActivateControllerTree(TriggerTree):
     def __init__(
         self,
         node: Node,
-        controller_to_activate: Optional[str] = "jaco_arm_cartesian_controller",
+        controller_to_activate: Optional[str] = "jaco_arm_controller",
         all_controller_names: Optional[List[str]] = None,
         re_tare: bool = False,
     ) -> None:
@@ -48,7 +48,7 @@ class ActivateControllerTree(TriggerTree):
             deactivate all controllers without activating any.
         all_controller_names: The names of all controllers. If None, the default
             controllers are "jaco_arm_cartesian_controller", "jaco_arm_controller",
-            and "jaco_arm_servo_controller"
+            "jaco_arm_servo_controller", and "joint_trajectory_controller"
         re_tare: If True, re-tare the force-torque sensor before activating the controller.
         """
         # Initialize the TriggerTree class
@@ -60,6 +60,7 @@ class ActivateControllerTree(TriggerTree):
                 "jaco_arm_cartesian_controller",
                 "jaco_arm_controller",
                 "jaco_arm_servo_controller",
+                "joint_trajectory_controller",
             ]
         self.re_tare = re_tare
 
@@ -118,17 +119,23 @@ class ActivateControllerTree(TriggerTree):
 
         # Create the behavior to switch controllers
         def switch_controller_request() -> SwitchController.Request:
+            activated = (
+                []  # Only possible via the __init__ parameter, not from the Action interface
+                if blackboard.controller_to_activate is None
+                else [blackboard.controller_to_activate]
+            )
+            deactivated = [
+                controller
+                for controller in self.all_controller_names
+                if controller != blackboard.controller_to_activate
+            ]
+            self._node.get_logger().info(
+                f"[ActivateController] Activating: {activated}, "
+                f"Deactivating: {deactivated}"
+            )
             return SwitchController.Request(
-                activate_controllers=(
-                    []  # Only possible via the __init__ parameter, not from the Action interface
-                    if blackboard.controller_to_activate is None
-                    else [blackboard.controller_to_activate]
-                ),
-                deactivate_controllers=[
-                    controller
-                    for controller in self.all_controller_names
-                    if controller != blackboard.controller_to_activate
-                ],
+                activate_controllers=activated,
+                deactivate_controllers=deactivated,
                 activate_asap=True,
                 strictness=SwitchController.Request.BEST_EFFORT,
             )
@@ -193,7 +200,10 @@ class ActivateControllerTree(TriggerTree):
             blackboard.register_key(
                 key="controller_to_activate", access=py_trees.common.Access.WRITE
             )
-            blackboard.controller_to_activate = goal.controller_to_activate
+            # Only override if a non-empty controller name was provided
+            # If empty string (default), keep the initialized value
+            if goal.controller_to_activate:
+                blackboard.controller_to_activate = goal.controller_to_activate
             blackboard.register_key(key="re_tare", access=py_trees.common.Access.WRITE)
             blackboard.re_tare = goal.re_tare
 

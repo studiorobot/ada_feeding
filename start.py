@@ -201,14 +201,14 @@ async def main(args: argparse.Namespace, pwd: str) -> None:
             "rosbridge": [
                 "ros2 launch rosbridge_server rosbridge_websocket_launch.xml"
             ],
+            "moveit": [
+                "ros2 launch ada_planning_scene ada_moveit_launch.xml sim:=mock"
+            ],
             "feeding": [
                 (
                     "ros2 launch ada_feeding ada_feeding_launch.xml use_estop:=false "
                     f"policy:={args.policy}"
                 ),
-            ],
-            "moveit": [
-                "ros2 launch ada_planning_scene ada_moveit_launch.xml sim:=mock"
             ],
             "browser": [
                 "cd ./src/feeding_web_interface/feedingwebapp",
@@ -258,14 +258,14 @@ async def main(args: argparse.Namespace, pwd: str) -> None:
             "rosbridge": [
                 "ros2 launch rosbridge_server rosbridge_websocket_launch.xml"
             ],
+            "moveit": [
+                "ros2 launch ada_planning_scene ada_moveit_kortex_launch.xml sim:=mock_kortex"
+            ],
             "feeding": [
                 (
                     "ros2 launch ada_feeding ada_feeding_launch.xml use_estop:=false "
                     f"policy:={args.policy}"
                 ),
-            ],
-            "moveit": [
-                "ros2 launch ada_planning_scene ada_moveit_kortex_launch.xml sim:=mock_kortex"
             ],
             "browser": [
                 "cd ./src/feeding_web_interface/feedingwebapp",

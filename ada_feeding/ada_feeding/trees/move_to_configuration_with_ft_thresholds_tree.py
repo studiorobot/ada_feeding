@@ -26,6 +26,7 @@ from ada_feeding.helpers import BlackboardKey
 from ada_feeding.idioms import pre_moveto_config, scoped_behavior
 from ada_feeding.idioms.bite_transfer import get_toggle_watchdog_listener_behavior
 from ada_feeding.trees import MoveToTree
+from .activate_controller import ActivateControllerTree
 
 
 class MoveToConfigurationWithFTThresholdsTree(MoveToTree):
@@ -53,7 +54,7 @@ class MoveToConfigurationWithFTThresholdsTree(MoveToTree):
         max_velocity_scaling_factor: float = 0.1,
         max_acceleration_scaling_factor: float = 0.1,
         # Optional parameters for the FT thresholds
-        re_tare: bool = True,
+        re_tare: bool = False,
         toggle_watchdog_listener: bool = True,
         f_mag: float = 0.0,
         f_x: float = 0.0,
@@ -217,6 +218,16 @@ class MoveToConfigurationWithFTThresholdsTree(MoveToTree):
             t_z=self.t_z,
         )
 
+        # Activate the joint trajectory controller before attempting motion
+        activate_controller = ActivateControllerTree(
+            self._node, controller_to_activate="joint_trajectory_controller"
+        ).create_tree(name=name + "ActivateController").root
+
+        # Re-activate jaco_arm_controller after motion completes so it's available for next action
+        restore_controller = ActivateControllerTree(
+            self._node, controller_to_activate="jaco_arm_controller"
+        ).create_tree(name=name + "RestoreControllerAfterMotion").root
+
         if self.toggle_watchdog_listener:
             # If there was a failure in the main tree, we want to ensure to turn
             # the watchdog listener back on
@@ -228,19 +239,25 @@ class MoveToConfigurationWithFTThresholdsTree(MoveToTree):
                 True,
             )
 
-            # Create the main tree
-            root = scoped_behavior(
+            # Create the main tree: activate controller, then run motion with watchdog management
+            main_behavior = scoped_behavior(
                 name=name + " ToggleWatchdogListenerOffScope",
                 pre_behavior=pre_moveto_behavior,
                 workers=[move_to_configuration_root],
                 post_behavior=turn_watchdog_listener_on,
+            )
+            
+            root = py_trees.composites.Sequence(
+                name=name,
+                memory=True,
+                children=[activate_controller, main_behavior, restore_controller],
             )
         else:
             # Combine them in a sequence with memory
             root = py_trees.composites.Sequence(
                 name=name,
                 memory=True,
-                children=[pre_moveto_behavior, move_to_configuration_root],
+                children=[activate_controller, pre_moveto_behavior, move_to_configuration_root, restore_controller],
             )
 
         tree = py_trees.trees.BehaviourTree(root)

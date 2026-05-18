@@ -133,13 +133,13 @@ class StopServoTree(TriggerTree):
             ],
         )
 
-        # Create the behavior to turn off the controllers
+        # Create the behavior to restore force control after stopping servo
         stop_controllers = (
             ActivateControllerTree(
                 self._node,
-                controller_to_activate=None,
+                controller_to_activate="jaco_arm_controller",
             )
-            .create_tree(name=name + "Deactivate Servo Controller")
+            .create_tree(name=name + "Restore Force Controller")
             .root
         )
 

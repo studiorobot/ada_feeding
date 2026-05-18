@@ -755,6 +755,7 @@ class CreateActionServers(Node):
                     action_server_params.tree_class,
                     action_server_params.tree_kwargs,
                 )
+
         # Save the updated parameters
         if updated_parameters:
             self.save_custom_parameters()
@@ -878,7 +879,7 @@ class CreateActionServers(Node):
             """
             self.get_logger().info(f"Received goal request for {server_name}")
 
-            # If we don't already have an active goal_request, accept this one
+            # Now check if we can accept the goal
             with self.active_goal_request_lock:
                 if self.watchdog_listener.ok() and self.active_goal_request is None:
                     self.get_logger().info(f"Accepting goal request for {server_name}")

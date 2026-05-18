@@ -6,24 +6,17 @@ ada_feeding_action_servers:
         tick_rate: 10
         tree_class: ada_feeding.trees.AcquireFoodTree
         tree_kwargs:
-          joint_positions:
-          - 3.7584342379702265
-          - -3.0680026297628116
-          - 0.11208646011532394
-          - 0.00303070749096387
-          - -0.05027405112606054
-          - -1.7464533479809023
-          - -2.085948872615267
           max_velocity_scaling_move_above: 1.0
           max_velocity_scaling_move_into: 1.0
           max_velocity_scaling_to_resting_configuration: 1.0
           resting_joint_positions:
-          - -1.94672
-          - 2.51268
-          - 0.35653
-          - -4.76501
-          - 5.99991
-          - 4.99555
+          - -2.02859619
+          - 0.7262315018
+          - -0.03089232776
+          - -1.933999344
+          - 0.02722713633
+          - -1.161865683
+          - 1.592612942
         tree_kws:
         - resting_joint_positions
         - max_velocity_scaling_move_above
@@ -40,13 +33,13 @@ ada_feeding_action_servers:
         tree_kwargs:
           f_mag: 4.0
           joint_positions:
-          - -0.38154221176943864
-          - -2.6442809484504473
-          - 1.1181369283438862
-          - 0.024664264415837685
-          - 2.1480679053200373
-          - -1.3870637228141465
-          - -1.071020326898642
+          - -0.144685
+          - -0.209614
+          - -0.030895
+          - -1.075298
+          - -0.027227
+          - -1.818459
+          - 2.445555348
           max_velocity_scaling_factor: 1.0
           toggle_watchdog_listener: false
         tree_kws:
@@ -127,20 +120,13 @@ ada_feeding_action_servers:
         tree_kwargs:
           allowed_planning_time: 1.0
           goal_configuration:
-          - -1.94672
-          - 2.51268
-          - 0.35653
-          - -4.76501
-          - 5.99991
-          - 4.99555
-          joint_positions:
-          - 3.7584342379702265
-          - -3.0680026297628116
-          - 0.11208646011532394
-          - 0.00303070749096387
-          - -0.05027405112606054
-          - -1.7464533479809023
-          - -2.085948872615267
+          - -1.42859619
+          - 0.7262315018
+          - -0.03089232776
+          - -1.933999344
+          - 0.02722713633
+          - -1.161865683
+          - 1.592612942
           max_velocity_scaling_factor: 1.0
           orientation_constraint_quaternion:
           - 0.707168
@@ -162,20 +148,13 @@ ada_feeding_action_servers:
         tree_kwargs:
           allowed_planning_time: 1.0
           goal_configuration:
-          - -2.32526
-          - 4.456298
-          - 4.16769
-          - 1.53262
-          - -2.18359
-          - -2.19525
-          joint_positions:
-          - -0.34364307728668453
-          - -2.621612844118122
-          - -0.019451526899020067
-          - -0.0007478863155584548
-          - -2.961872137853919
-          - 2.256032732630817
-          - -1.0554859623695632
+          - -2.152514566
+          - -1.012290966
+          - -0.03106686069
+          - -1.034980246
+          - 2.162113877
+          - -1.44809968
+          - 1.58947135
           max_velocity_scaling_factor: 1.0
           orientation_constraint_quaternion:
           - 0.707168
@@ -197,13 +176,13 @@ ada_feeding_action_servers:
         tree_kwargs:
           f_mag: 4.0
           joint_positions:
-          - -1.8097409330951433
-          - -3.034236319518189
-          - -0.5886060906556563
-          - -0.01662584917147908
-          - -2.3607675332619724
-          - 1.924388137639693
-          - 0.4534271435389849
+          - -1.42859619
+          - 0.6515314098
+          - -0.03089232776
+          - -2.402620248
+          - -0.02722713633
+          - -0.6394886379
+          - 1.592612942
           max_velocity_scaling_factor: 1.0
           toggle_watchdog_listener: false
         tree_kws:

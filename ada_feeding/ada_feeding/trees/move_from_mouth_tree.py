@@ -387,7 +387,7 @@ class MoveFromMouthTree(MoveToTree):
                                 [self.wheelchair_collision_object_id],
                                 True,
                             ),
-                            ActivateControllerTree(self._node)
+                            ActivateControllerTree(self._node, controller_to_activate="joint_trajectory_controller")
                             .create_tree(name=name + "ActivateCartesianController")
                             .root,
                         ],
@@ -397,7 +397,7 @@ class MoveFromMouthTree(MoveToTree):
                         memory=True,
                         children=[
                             ActivateControllerTree(
-                                self._node, controller_to_activate=None
+                                self._node, controller_to_activate="jaco_arm_controller"
                             )
                             .create_tree(name=name + "DeactivateCartesianController")
                             .root,

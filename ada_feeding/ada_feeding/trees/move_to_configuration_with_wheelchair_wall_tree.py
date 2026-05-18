@@ -36,6 +36,7 @@ from ada_feeding.idioms.bite_transfer import (
 from ada_feeding.trees import (
     MoveToTree,
 )
+from .activate_controller import ActivateControllerTree
 
 
 class MoveToConfigurationWithWheelchairWallTree(MoveToTree):
@@ -151,6 +152,10 @@ class MoveToConfigurationWithWheelchairWallTree(MoveToTree):
             name=name,
             memory=True,
             children=[
+                # Activate the joint trajectory controller before attempting motion
+                ActivateControllerTree(
+                    self._node, controller_to_activate="joint_trajectory_controller"
+                ).create_tree(name=name + "ActivateController").root,
                 # Retare the F/T sensor and set the F/T Thresholds
                 pre_moveto_config(
                     name=name + "PreMoveToConfig",
@@ -204,6 +209,10 @@ class MoveToConfigurationWithWheelchairWallTree(MoveToTree):
                         ),
                     ],
                 ),
+                # Re-activate jaco_arm_controller after motion completes so it's available for next action (no re-tare to avoid timeout)
+                ActivateControllerTree(
+                    self._node, controller_to_activate="jaco_arm_controller", re_tare=False
+                ).create_tree(name=name + "RestoreControllerAfterMotion").root,
             ],
         )
 
