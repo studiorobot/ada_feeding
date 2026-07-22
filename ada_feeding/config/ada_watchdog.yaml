@@ -17,7 +17,7 @@ ada_watchdog:
     # If the force_torque sensor has not published a message in this amount of time,
     # or any of its dimensions are zero-variance in this amount of time, the watchdog
     # will trigger a fault.
-    ft_timeout_sec: 1.0
+    ft_timeout_sec: 2.0
 
     ############################################################################
     # Parameters for the EStopCondition of the watchdog
@@ -117,12 +117,11 @@ ada_watchdog:
       is_usb: false
       acpi_event_name: "jack/microphone MICROPHONE"
     lovelace:
-      pactl_mic_name: 'alsa_input.usb-Plugable_Plugable_USB_Audio_Device_000000000000-00.analog-stereo'
-      amixer_mic_toggle_control_name: "'Mic',0"
+      pactl_mic_name: 'alsa_input.pci-0000_00_1f.3.analog-stereo'
+      amixer_mic_toggle_control_name: "'Capture',0"
       amixer_mic_control_names:
-        - "'Mic',0"
+        - "'Capture',0"
       amixer_mic_control_percentages:
         - 40
-      is_usb: true
-      udev_id: 'usb-Plugable_Plugable_USB_Audio_Device_000000000000-00'
-      device_name: 'Plugable USB Audio Device'
+      is_usb: false
+      device_name: 'HDA Intel PCH: ALC3246 Analog'

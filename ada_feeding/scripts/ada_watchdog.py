@@ -54,9 +54,9 @@ class ADAWatchdog(Node):
         self.__load_parameters()
 
         # Create the conditions
-        self.conditions = [
-            FTSensorCondition(self),
-        ]
+        self.conditions = []
+        if self.use_ft_sensor.value:
+            self.conditions.append(FTSensorCondition(self))
         if self.use_estop.value:
             self.conditions.insert(0, EStopCondition(self))
         self.has_passed_startup_conditions = False
@@ -104,6 +104,19 @@ class ADAWatchdog(Node):
                     "Whether to check the state of the physical e-stop button. "
                     "This should only be set False in sim, since we currently "
                     "have no way of simulating the e-stop button."
+                ),
+                read_only=True,
+            ),
+        )
+        self.use_ft_sensor = self.declare_parameter(
+            "use_ft_sensor",
+            True,
+            ParameterDescriptor(
+                name="use_ft_sensor",
+                type=ParameterType.PARAMETER_BOOL,
+                description=(
+                    "Whether to check the state of the force-torque sensor. "
+                    "This should only be set False for testing without hardware."
                 ),
                 read_only=True,
             ),

@@ -25,6 +25,15 @@ import numpy as np
 import torch
 from torchvision import transforms
 
+# torch.take_along_dim was added in PyTorch 1.9; this workspace's apt-installed
+# torch is 1.8.1, so polyfill it with an equivalent torch.gather call.
+if not hasattr(torch, "take_along_dim"):
+
+    def _take_along_dim(input_tensor, indices, dim):
+        return torch.gather(input_tensor, dim, indices.expand_as(input_tensor))
+
+    torch.take_along_dim = _take_along_dim
+
 # Local imports
 from ada_feeding_perception.helpers import (
     bbox_from_mask,

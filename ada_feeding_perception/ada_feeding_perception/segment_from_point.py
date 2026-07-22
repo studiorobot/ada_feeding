@@ -27,7 +27,7 @@ from rclpy.executors import MultiThreadedExecutor
 from rclpy.parameter import Parameter
 from rclpy.qos import QoSProfile, ReliabilityPolicy
 from segment_anything import sam_model_registry, SamPredictor
-from sensor_msgs.msg import CameraInfo, CompressedImage, Image, RegionOfInterest
+from sensor_msgs.msg import CameraInfo, CompressedImage, RegionOfInterest
 import torch
 from torchvision import transforms
 
@@ -92,6 +92,8 @@ class SegmentFromPointNode:
             self.rate_hz,
             self.min_depth_mm,
             self.max_depth_mm,
+            self.seed_point_image_width,
+            self.seed_point_image_height,
         ) = self.read_params()
 
         # Download the checkpoint if it doesn't exist
@@ -126,9 +128,9 @@ class SegmentFromPointNode:
             aligned_depth_type = get_img_msg_type(self.aligned_depth_topic, self._node)
         except ValueError as err:
             self._node.get_logger().error(
-                f"Error getting type of depth image topic. Defaulting to Image. {err}"
+                f"Error getting type of depth image topic. Defaulting to CompressedImage. {err}"
             )
-            aligned_depth_type = Image
+            aligned_depth_type = CompressedImage
         # Subscribe to the depth image
         self._node.add_subscription(
             aligned_depth_type,
@@ -191,6 +193,10 @@ class SegmentFromPointNode:
         rate_hz: The rate at which to return feedback.
         min_depth_mm: The minimum depth in mm to consider for a mask.
         max_depth_mm: The maximum depth in mm to consider for a mask.
+        seed_point_image_width: The width, in pixels, of the image that clients
+            express the seed point's `x` coordinate relative to.
+        seed_point_image_height: The height, in pixels, of the image that clients
+            express the seed point's `y` coordinate relative to.
         """
         (
             sam_model_name,
@@ -203,6 +209,8 @@ class SegmentFromPointNode:
             rate_hz,
             min_depth_mm,
             max_depth_mm,
+            seed_point_image_width,
+            seed_point_image_height,
         ) = self._node.declare_parameters(
             "",
             [
@@ -315,6 +323,36 @@ class SegmentFromPointNode:
                         read_only=True,
                     ),
                 ),
+                (
+                    "seed_point_image_width",
+                    640,
+                    ParameterDescriptor(
+                        name="seed_point_image_width",
+                        type=ParameterType.PARAMETER_INTEGER,
+                        description=(
+                            "The width, in pixels, of the image that clients "
+                            "express the seed point's `x` coordinate relative to. "
+                            "If the actual received image has a different width, "
+                            "the seed point is rescaled accordingly."
+                        ),
+                        read_only=True,
+                    ),
+                ),
+                (
+                    "seed_point_image_height",
+                    480,
+                    ParameterDescriptor(
+                        name="seed_point_image_height",
+                        type=ParameterType.PARAMETER_INTEGER,
+                        description=(
+                            "The height, in pixels, of the image that clients "
+                            "express the seed point's `y` coordinate relative to. "
+                            "If the actual received image has a different height, "
+                            "the seed point is rescaled accordingly."
+                        ),
+                        read_only=True,
+                    ),
+                ),
             ],
         )
 
@@ -334,6 +372,8 @@ class SegmentFromPointNode:
             rate_hz.value,
             min_depth_mm.value,
             max_depth_mm.value,
+            seed_point_image_width.value,
+            seed_point_image_height.value,
         )
 
     def initialize_sam(self, model_name: str, model_path: str) -> None:
@@ -527,24 +567,31 @@ class SegmentFromPointNode:
             input_labels,
         )
         sorted_ids = torch.argsort(predicted_iou, dim=-1, descending=True)
-        predicted_iou = torch.take_along_dim(predicted_iou, sorted_ids, dim=2)
-        predicted_logits = torch.take_along_dim(
-            predicted_logits, sorted_ids[..., None, None], dim=2
+        # NOTE: torch.take_along_dim is unavailable in this environment's PyTorch
+        # build (1.8.0a0, predates its introduction in 1.9), so we use
+        # torch.gather instead, expanding the index tensor to match input shape
+        # since gather (unlike take_along_dim) does not broadcast indices.
+        predicted_iou = torch.gather(predicted_iou, dim=2, index=sorted_ids)
+        predicted_logits = torch.gather(
+            predicted_logits,
+            dim=2,
+            index=sorted_ids[..., None, None].expand_as(predicted_logits),
         )
         masks = torch.ge(predicted_logits[0, 0, :, :, :], 0).cpu().detach().numpy()
         scores = predicted_iou[0, 0, :].cpu().detach().numpy()
         return masks, scores
 
     async def segment_image(
-        self, seed_point: Tuple[int, int], image_msg: Image
+        self, seed_point: Tuple[int, int], image: npt.NDArray, header
     ) -> SegmentFromPoint.Result:
         """
         Segment image using the SAM model.
 
         Parameters
         ----------
-        seed_point: The seed point to segment from.
-        image_msg: The Image message containing the image to segment.
+        seed_point: The seed point to segment from, in pixel coordinates of `image`.
+        image: The already-decoded image to segment, in BGR.
+        header: The header of the image message, to include in the result.
 
         Returns
         -------
@@ -556,7 +603,7 @@ class SegmentFromPointNode:
         self._node.get_logger().info("Segmenting image...")
         # Create the result
         result = SegmentFromPoint.Result()
-        result.header = image_msg.header
+        result.header = header
         if self.camera_info is None:
             self.camera_info = self._node.get_latest_msg(self.camera_info_topic)
         if self.camera_info is not None:
@@ -568,9 +615,6 @@ class SegmentFromPointNode:
 
         # Get the latest depth image
         depth_img_msg = self._node.get_latest_msg(self.aligned_depth_topic)
-
-        # Convert the image to OpenCV format
-        image = ros_msg_to_cv2_image(image_msg, self.bridge)
 
         # Convert the depth image to OpenCV format. The depth image is a
         # 16-bit image with depth in mm.
@@ -705,11 +749,29 @@ class SegmentFromPointNode:
 
         # Get the latest image
         latest_img_msg = self._node.get_latest_msg(self.rgb_image_topic)
+        image = ros_msg_to_cv2_image(latest_img_msg, self.bridge)
 
-        # Start image segmentation as a co-routine
+        # Clients express the seed point's (x, y) relative to a reference image
+        # size (`seed_point_image_width`/`seed_point_image_height`), which may
+        # not match the actual resolution of the image we just received (e.g.,
+        # if a client assumes a hardcoded camera resolution). Rescale the seed
+        # point to the actual image's resolution before using it as a pixel index.
+        image_height, image_width = image.shape[:2]
         seed_point = (
-            int(goal_handle.request.seed_point.point.x),
-            int(goal_handle.request.seed_point.point.y),
+            int(
+                round(
+                    goal_handle.request.seed_point.point.x
+                    * image_width
+                    / self.seed_point_image_width
+                )
+            ),
+            int(
+                round(
+                    goal_handle.request.seed_point.point.y
+                    * image_height
+                    / self.seed_point_image_height
+                )
+            ),
         )
         rate = self._node.create_rate(self.rate_hz)
 
@@ -717,7 +779,7 @@ class SegmentFromPointNode:
             self._node.destroy_rate(rate)
 
         segment_image_task = self._node.executor.create_task(
-            self.segment_image, seed_point, latest_img_msg
+            self.segment_image, seed_point, image, latest_img_msg.header
         )
 
         # Keep returning feedback until the task is done

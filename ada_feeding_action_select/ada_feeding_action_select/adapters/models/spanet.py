@@ -133,7 +133,7 @@ class SPANet(nn.Module):
             (self.config.image_size - new_size[0]) // 2,
             (self.config.image_size - new_size[1]) // 2,
         ]
-        img_org = img_org.resize(new_size, PILImage.ANTIALIAS)
+        img_org = img_org.resize(new_size, PILImage.Resampling.LANCZOS)
         img = PILImage.new("RGB", (self.config.image_size, self.config.image_size))
         img.paste(img_org, pads)
         return torch.stack(

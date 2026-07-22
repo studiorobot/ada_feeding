@@ -33,13 +33,13 @@ ada_feeding_action_servers:
         tree_kwargs:
           f_mag: 4.0
           joint_positions:
-          - -0.144685
-          - -0.209614
-          - -0.030895
-          - -1.075298
-          - -0.027227
-          - -1.818459
-          - 2.445555348
+          - 0.07400196
+          - 0.4459316
+          - 3.136531
+          - 4.759338
+          - 6.251071
+          - 5.133537
+          - 1.541824
           max_velocity_scaling_factor: 1.0
           toggle_watchdog_listener: false
         tree_kws:

@@ -6,6 +6,7 @@
 <launch>
   <arg name="run_web_bridge" default="false" description="Whether to run the web bridge nodes" />
   <arg name="use_estop" default="true" description="Whether to use the e-stop. Should only be set false in sim, since we don't have a way of simulating the e-stop button." />
+  <arg name="use_ft_sensor" default="true" description="Whether to check the force-torque sensor. Should only be set false for testing without hardware." />
   <arg name="log_level" default="info" description="Log Level to pass to create_action_servers: debug, info, warn" />
   <arg name="policy" default="constant" description="Which policy to use" />
   <arg name="action" default="0" description="Which action to use with constant policy" />
@@ -19,7 +20,8 @@
   <node pkg="ada_feeding" exec="ada_watchdog.py" name="ada_watchdog">
     <param from="$(find-pkg-share ada_feeding)/config/ada_watchdog.yaml"/>
     <param name="use_estop" value="$(var use_estop)"/>
-    <remap from="~/ft_topic" to="/wireless_ft/ftSensor3" />
+    <param name="use_ft_sensor" value="$(var use_ft_sensor)"/>
+    <remap from="~/ft_topic" to="/wireless_ft/ftSensor1" />
   </node>
 
   <!-- Launch the action servers necessary to move the robot -->
@@ -29,7 +31,7 @@
     <remap from="~/watchdog" to="/ada_watchdog/watchdog" />
     <remap from="~/toggle_watchdog_listener" to="/ada_watchdog_listener/toggle_watchdog_listener" />
     <remap from="~/re_tare_ft" to="/wireless_ft/set_bias" />
-    <remap from="~/ft_topic" to="/wireless_ft/ftSensor3" />
+    <remap from="~/ft_topic" to="/wireless_ft/ftSensor1" />
     <remap from="~/set_force_gate_controller_parameters" to="/jaco_arm_controller/set_parameters" />
     <remap from="~/set_servo_controller_parameters" to="/jaco_arm_servo_controller/set_parameters" />
     <remap from="~/set_cartesian_controller_parameters" to="/jaco_arm_cartesian_controller/set_parameters" />

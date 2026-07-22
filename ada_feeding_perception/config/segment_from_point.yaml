@@ -23,6 +23,13 @@ segment_from_point:
     # The rate (hz) at which to return feedback
     segment_from_point_rate_hz: 10.0
 
+    # The width/height, in pixels, of the image that clients express the seed
+    # point's (x, y) relative to (e.g., the webapp's assumed camera resolution).
+    # If the actual received image has a different resolution, the seed point
+    # is rescaled accordingly before being used.
+    seed_point_image_width: 640
+    seed_point_image_height: 480
+
 # NOTE: If using the combined perception node, be very careful to ensure no name clashes of parameters!
 ada_feeding_perception:
   ros__parameters:
@@ -44,3 +51,10 @@ ada_feeding_perception:
 
     # The rate (hz) at which to return feedback
     segment_from_point_rate_hz: 10.0
+
+    # The width/height, in pixels, of the image that clients express the seed
+    # point's (x, y) relative to (e.g., the webapp's assumed camera resolution).
+    # If the actual received image has a different resolution, the seed point
+    # is rescaled accordingly before being used.
+    seed_point_image_width: 640
+    seed_point_image_height: 480

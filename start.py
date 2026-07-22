@@ -324,14 +324,14 @@ async def main(args: argparse.Namespace, pwd: str) -> None:
             ],
             "webrtc": [
                 "cd ./src/feeding_web_interface/feedingwebapp",
-                "pm2 start server.js",
-                "pm2 log server",
+                "node --env-file=.env server.js",
             ],
             "camera": [
-                "ssh nano@nano -t './start_nano.sh'",
+                #"ssh nano@nano -t './start_nano.sh'",
+                "ros2 launch realsense2_camera rs_launch.py camera_namespace:=local rgb_camera.profile:='640,480,30' depth_module.profile:='640,480,30' align_depth.enable:='true' initial_reset:='true'",
             ],
             "ft": [
-                "ros2 run forque_sensor_hardware forque_sensor_hardware --ros-args -p host:=ft-sensor-2",
+                "ros2 run forque_sensor_hardware forque_sensor_hardware --ros-args -p host:=192.168.1.1 -p local_host:=192.168.1.100 -p udpport:=49152 -p local_udpport:=49152 -p countsPerN:=700000 -p countsPerNm:=1000000",
             ],
             "rosbridge": [
                 "ros2 launch rosbridge_server rosbridge_websocket_launch.xml",
@@ -348,7 +348,8 @@ async def main(args: argparse.Namespace, pwd: str) -> None:
                 "sudo ./src/ada_feeding/configure_lovelace.sh",
                 (
                     "ros2 launch ada_feeding ada_feeding_launch.xml "
-                    f"use_estop:={'false' if args.dev else 'true'} run_web_bridge:=false policy:={args.policy}"
+                    f"use_estop:={'false' if args.dev else 'true'} "
+                    f"run_web_bridge:=false policy:={args.policy}"
                 ),
             ],
             "browser": [
@@ -356,11 +357,7 @@ async def main(args: argparse.Namespace, pwd: str) -> None:
                 "node start_robot_browser.js" + ("" if args.dev else " --port=80"),
             ],
         }
-        close_commands = {
-            "webrtc": [
-                "pm2 delete server",
-            ]
-        }
+        close_commands = {}
     initial_close_commands = ["\003"]
     initial_start_commands = [
         f"cd {pwd}",

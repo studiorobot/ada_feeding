@@ -24,11 +24,16 @@ from rclpy.action import ActionClient
 from rclpy.executors import MultiThreadedExecutor
 from rclpy.node import Node
 from rcl_interfaces.msg import ParameterDescriptor, ParameterType
-from sensor_msgs.msg import Image
+from sensor_msgs.msg import CompressedImage, Image
 
 # Local Imports
 from ada_feeding_msgs.action import SegmentFromPoint
-from ada_feeding_perception.helpers import overlay_mask_on_image
+from ada_feeding_perception.helpers import (
+    generic_image_type,
+    get_img_msg_type,
+    overlay_mask_on_image,
+    ros_msg_to_cv2_image,
+)
 
 
 class TestSegmentFromPoint(Node):
@@ -110,8 +115,15 @@ class TestSegmentFromPoint(Node):
             # Subscribe to the image topic
             self.latest_img_msg_lock = threading.Lock()
             self.latest_img_msg = None
+            try:
+                image_type = get_img_msg_type("~/image", self)
+            except ValueError as err:
+                self.get_logger().error(
+                    f"Error getting type of image topic. Defaulting to CompressedImage. {err}"
+                )
+                image_type = CompressedImage
             self.create_subscription(
-                Image,
+                image_type,
                 "~/image",
                 self.image_callback,
                 1,
@@ -245,7 +257,7 @@ class TestSegmentFromPoint(Node):
                 "Invalid mode parameter. Must be either 'online' or 'offline'"
             )
 
-    def image_callback(self, msg: Image) -> None:
+    def image_callback(self, msg: generic_image_type) -> None:
         """
         Stores the latest image and, if we have called the action server,
         accumulates the image in a list. This function is only used in online
@@ -274,9 +286,7 @@ class TestSegmentFromPoint(Node):
             with self.latest_img_msg_lock:
                 if self.latest_img_msg is not None:
                     # Convert the image to a CV image
-                    img = self.bridge.imgmsg_to_cv2(
-                        self.latest_img_msg, desired_encoding="bgr8"
-                    )
+                    img = ros_msg_to_cv2_image(self.latest_img_msg, self.bridge)
                     img = cv2.cvtColor(img, cv2.COLOR_BGR2RGB)
             if img is not None:
                 # Display it
@@ -325,7 +335,10 @@ class TestSegmentFromPoint(Node):
         self.get_logger().info(f"Clicked at {x}, {y}")
         with self.latest_img_msg_lock:
             latest_img_msg = self.latest_img_msg
-            self.get_logger().info(f"Latest image header: {self.latest_img_msg.header}")
+        if latest_img_msg is None:
+            self.get_logger().warn("No image received yet, ignoring click")
+            return
+        self.get_logger().info(f"Latest image header: {latest_img_msg.header}")
 
         # Call the action server if we aren't waiting for the result of another call
         with self.waiting_for_goal_lock:
@@ -398,9 +411,7 @@ class TestSegmentFromPoint(Node):
             self.get_logger().error("Could not find image matching result header")
         else:
             # Convert the image to a CV image
-            img = self.bridge.imgmsg_to_cv2(
-                segmented_image_msg, desired_encoding="bgr8"
-            )
+            img = ros_msg_to_cv2_image(segmented_image_msg, self.bridge)
             with self.segmented_image_lock:
                 img = cv2.cvtColor(img, cv2.COLOR_BGR2RGB)
                 # Overlay a circle on the image

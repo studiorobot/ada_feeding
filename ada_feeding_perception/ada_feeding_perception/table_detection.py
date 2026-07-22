@@ -288,12 +288,13 @@ class TableDetectionNode:
             125  # Larger is more selective and decreases chance of false positives
         )
         hough_min = 75  # Minimum radius of circles to detect
-        hough_max = 200  # Maximum radius of circles to detect
+        hough_max = 250  # Maximum radius of circles to detect
         table_buffer = 50  # Extra radius around the plate to use for table detection
 
         # Convert ROS images to CV images
         image = ros_msg_to_cv2_image(image_msg, self.bridge)
         gray = cv2.cvtColor(image, cv2.COLOR_BGR2GRAY)
+        gray = cv2.medianBlur(gray, 5)
         image_depth = ros_msg_to_cv2_image(image_depth_msg, self.bridge)
 
         # Detect all circles from the camera image
@@ -310,6 +311,7 @@ class TableDetectionNode:
 
         # If no circles are detected, return None, None, None
         if circles is None:
+            #self._node.get_logger().error("No circles detected in the image.")
             return None, None, None
 
         # Determine the largest circle from the detected circles as the plate

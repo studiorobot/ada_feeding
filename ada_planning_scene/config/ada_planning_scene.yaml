@@ -304,12 +304,8 @@ ada_planning_scene:
     # These are used when computing the bounds of different robot arm configurationss.
     fixed_joint_names:
       - robot_tilt
-      - ada_joint_finger_1
-      - ada_joint_finger_2
     fixed_joint_values:
       - 0.0
-      - 1.33 # closed around fork handle
-      - 1.33 # closed around fork handle
 
     # The names of the articulated joints. The values in the configurations above
     # must have the same length as this list, and have the same order.
@@ -351,25 +347,25 @@ ada_planning_scene:
 
     # - `table_origin_offset`: The offset values (in meters) for the center coordinates ([x, y, z])
     #    of the table. These values are used to translate the detected position into the table's origin.
-    # - `table_quat_dist_thresh`: The threshold on the angular distance (in radians) between the default
+    # - `table_rotation_threshold`: The threshold on the angular distance (in radians) between the default
     #    table quaternion and the latest table quaternion to determine whether to reject or accept the
     #    latest table quaternion.
-    # - `table_pos_dist_thresh`: The threshold on the linear distance (in m) between the default table position
+    # - `table_distance_threshold`: The threshold on the linear distance (in m) between the default table position
     #    and the latest table position to determine whether to reject or accept the latest table position.
     table_detection:
       seated:
         table_origin_offset: [-0.20, -0.25, -0.79]
-        table_quat_dist_thresh: 0.349
-        table_pos_dist_thresh: 0.5
+        table_rotation_threshold: 0.349
+        table_distance_threshold: 0.5
       seated_90:
         table_origin_offset: [-0.10, -0.25, -0.79]
-        table_quat_dist_thresh: 0.349
-        table_pos_dist_thresh: 0.5
+        table_rotation_threshold: 0.349
+        table_distance_threshold: 0.5
       bedside:
         table_origin_offset: [-0.23, 0.71, -1.0067]
-        table_quat_dist_thresh: 0.349
-        table_pos_dist_thresh: 0.5
+        table_rotation_threshold: 0.349
+        table_distance_threshold: 0.5
       bedside_90:
         table_origin_offset: [-0.71, -0.23, -1.0067]
-        table_quat_dist_thresh: 0.349
-        table_pos_dist_thresh: 0.5
+        table_rotation_threshold: 0.349
+        table_distance_threshold: 0.5
