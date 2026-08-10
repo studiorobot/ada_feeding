@@ -269,6 +269,16 @@ class UpdateFromTableDetection:
                 table_rotation_threshold=table_rotation_threshold.value,
             )
 
+    def destroy(self) -> None:
+        """
+        Destroy the subscription and timer owned by this object. Must be
+        called before discarding an instance (e.g., when re-initializing for
+        a new namespace) to avoid leaking a timer/subscription that would keep
+        running against stale (previous-namespace) data.
+        """
+        self.__node.destroy_timer(self.__table_detection_timer)
+        self.__node.destroy_subscription(self.__table_detection_sub)
+
     def __table_detection_callback(self, msg: PoseStamped) -> None:
         """
         Callback for the table detection topic.

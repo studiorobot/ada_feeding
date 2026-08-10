@@ -59,6 +59,8 @@ ada_feeding_action_servers:
           - max_velocity_scaling_move_above
           - max_velocity_scaling_move_into
           - max_velocity_scaling_to_resting_configuration
+          - allowed_planning_time_for_move_above
+          - allowed_planning_time_for_move_into
         tree_kwargs:
           resting_joint_positions: # required
             - -1.94672 # j2n6s200_joint_1
@@ -70,6 +72,8 @@ ada_feeding_action_servers:
           max_velocity_scaling_move_above: 1.0 # m/s
           max_velocity_scaling_move_into: 1.0 # m/s
           max_velocity_scaling_to_resting_configuration: 1.0 # m/s
+          allowed_planning_time_for_move_above: 1.5 # secs, was 0.5 default; real octomap collision checking needs more time
+          allowed_planning_time_for_move_into: 1.5 # secs, was 0.5 default; real octomap collision checking needs more time
         tick_rate: 10 # Hz, optional, default: 30
 
       # Parameters for the MoveToRestingPosition action

@@ -312,6 +312,16 @@ class UpdateFromFaceDetection:
                 update_body=update_body.value,
             )
 
+    def destroy(self) -> None:
+        """
+        Destroy the subscription and timer owned by this object. Must be
+        called before discarding an instance (e.g., when re-initializing for
+        a new namespace) to avoid leaking a timer/subscription that would keep
+        running against stale (previous-namespace) data.
+        """
+        self.__node.destroy_timer(self.__face_detection_timer)
+        self.__node.destroy_subscription(self.__face_detection_sub)
+
     def __face_detection_callback(self, msg: FaceDetection) -> None:
         """
         Callback for the face detection topic.

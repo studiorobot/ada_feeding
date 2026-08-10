@@ -56,7 +56,8 @@ from ada_feeding.idioms.bite_transfer import (
 from ada_feeding.trees import (
     MoveToTree,
 )
-from .activate_controller import ActivateControllerTree
+from .start_servo_tree import StartServoTree
+from .stop_servo_tree import StopServoTree
 
 
 class MoveToMouthTree(MoveToTree):
@@ -450,8 +451,8 @@ class MoveToMouthTree(MoveToTree):
                                 [self.wheelchair_collision_object_id],
                                 True,
                             ),
-                            ActivateControllerTree(self._node, controller_to_activate="joint_trajectory_controller")
-                            .create_tree(name=name + "ActivateCartesianController")
+                            StartServoTree(self._node)
+                            .create_tree(name=name + "StartServo")
                             .root,
                         ],
                     ),
@@ -461,10 +462,8 @@ class MoveToMouthTree(MoveToTree):
                         name=name,
                         memory=True,
                         children=[
-                            ActivateControllerTree(
-                                self._node, controller_to_activate="jaco_arm_controller"
-                            )
-                            .create_tree(name=name + "DeactivateCartesianController")
+                            StopServoTree(self._node)
+                            .create_tree(name=name + "StopServo")
                             .root,
                             get_toggle_collision_object_behavior(
                                 name + "DisallowWheelchairCollisionScopePost",
@@ -494,7 +493,7 @@ class MoveToMouthTree(MoveToTree):
                             speed=speed,
                             ignore_orientation=True,
                             subscribe_to_servo_status=False,
-                            pub_topic="~/cartesian_twist_cmds",
+                            pub_topic="~/servo_twist_cmds",
                             viz=True,
                         )
                     ],

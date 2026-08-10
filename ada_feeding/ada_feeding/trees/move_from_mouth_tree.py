@@ -37,6 +37,8 @@ from ada_feeding.idioms.bite_transfer import (
 )
 from ada_feeding.trees import MoveToTree
 from .activate_controller import ActivateControllerTree
+from .start_servo_tree import StartServoTree
+from .stop_servo_tree import StopServoTree
 
 
 class MoveFromMouthTree(MoveToTree):
@@ -278,6 +280,15 @@ class MoveFromMouthTree(MoveToTree):
                 name=name + "MoveToStagingConfigurationViaMoveIt2" + suffix,
                 memory=True,
                 children=[
+                    # Activate the joint trajectory controller before attempting
+                    # motion. This is necessary because this fallback is only
+                    # reached after the Servo-based attempt above has left
+                    # jaco_arm_servo_controller active.
+                    ActivateControllerTree(
+                        self._node, controller_to_activate="joint_trajectory_controller"
+                    )
+                    .create_tree(name=name + "ActivateController" + suffix)
+                    .root,
                     # Goal configuration: target position
                     MoveIt2PositionConstraint(
                         name="MoveToStagingPosePositionGoalConstraint" + suffix,
@@ -387,8 +398,8 @@ class MoveFromMouthTree(MoveToTree):
                                 [self.wheelchair_collision_object_id],
                                 True,
                             ),
-                            ActivateControllerTree(self._node, controller_to_activate="joint_trajectory_controller")
-                            .create_tree(name=name + "ActivateCartesianController")
+                            StartServoTree(self._node)
+                            .create_tree(name=name + "StartServo")
                             .root,
                         ],
                     ),
@@ -396,10 +407,8 @@ class MoveFromMouthTree(MoveToTree):
                         name=name,
                         memory=True,
                         children=[
-                            ActivateControllerTree(
-                                self._node, controller_to_activate="jaco_arm_controller"
-                            )
-                            .create_tree(name=name + "DeactivateCartesianController")
+                            StopServoTree(self._node)
+                            .create_tree(name=name + "StopServo")
                             .root,
                             get_toggle_collision_object_behavior(
                                 name + "DisallowWheelchairCollisionScopePost",
@@ -459,7 +468,7 @@ class MoveFromMouthTree(MoveToTree):
                                             round_decimals=3,
                                             speed=speed,
                                             subscribe_to_servo_status=False,
-                                            pub_topic="~/cartesian_twist_cmds",
+                                            pub_topic="~/servo_twist_cmds",
                                             ignore_orientation=True,
                                         ),
                                     ],  # End MoveToStagingConfigurationViaServo.children

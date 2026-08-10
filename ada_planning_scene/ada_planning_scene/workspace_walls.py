@@ -158,6 +158,11 @@ class WorkspaceWalls:
         self.__active_goal_request_lock = Lock()
         self.__active_goal_request = None
 
+        # Track the recompute-workspace-walls action server so it can be
+        # destroyed and recreated on re-initialization (e.g., namespace
+        # switches), instead of leaking a duplicate server on every switch.
+        self.__recompute_workspace_walls_action = None
+
     def __load_parameters(self):
         """
         Load parameters relevant to the workspace walls.
@@ -1196,6 +1201,12 @@ class WorkspaceWalls:
         """
         Create the action to recompute the workspace walls.
         """
+        # Destroy the previous action server, if any, so re-initialization
+        # (e.g., a namespace switch) doesn't leak a duplicate server under the
+        # same action name.
+        if self.__recompute_workspace_walls_action is not None:
+            self.__recompute_workspace_walls_action.destroy()
+
         # Create the action server.
         # Note: remapping action names does not work: https://github.com/ros2/ros2/issues/1312
         # pylint: disable=unused-private-member, attribute-defined-outside-init

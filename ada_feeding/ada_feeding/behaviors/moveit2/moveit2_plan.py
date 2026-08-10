@@ -322,8 +322,6 @@ class MoveIt2Plan(BlackboardBehavior):
                             self.blackboard_set(
                                 "error_code", MoveIt2PlanErrorCode.PATH_LEN
                             )
-                            error_code = self.blackboard_get("error_code")
-                            self.logger.error(f"Planning failed with error_code={error_code.name} (value={error_code.value})")
                             return py_trees.common.Status.FAILURE
                     if (
                         self.blackboard_exists("max_path_len_joint")

@@ -9,6 +9,8 @@ ada_feeding_action_servers:
           max_velocity_scaling_move_above: 1.0
           max_velocity_scaling_move_into: 1.0
           max_velocity_scaling_to_resting_configuration: 1.0
+          allowed_planning_time_for_move_above: 4.5 # secs, was 0.5 default; real octomap collision checking needs more time
+          allowed_planning_time_for_move_into: 4.5 # secs, was 0.5 default; real octomap collision checking needs more time
           resting_joint_positions:
           - -2.02859619
           - 0.7262315018
@@ -22,6 +24,8 @@ ada_feeding_action_servers:
         - max_velocity_scaling_move_above
         - max_velocity_scaling_move_into
         - max_velocity_scaling_to_resting_configuration
+        - allowed_planning_time_for_move_above
+        - allowed_planning_time_for_move_into
       ActivateController:
         action_type: ada_feeding_msgs.action.ActivateController
         tick_rate: 10

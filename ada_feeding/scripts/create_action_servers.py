@@ -232,7 +232,12 @@ class CreateActionServers(Node):
         )
         self.set_namespace_to_use(namespace_to_use.value)
 
-        # Get the planning scene namespace to use
+        # Get the planning scene namespace to use. Note that we don't push this to
+        # ada_planning_scene yet: ada_planning_scene's own startup queries this
+        # node's action-server parameters (declared below) to populate parts of
+        # the planning scene, so pushing the namespace before those parameters
+        # are declared can cause that query to transiently fail.
+        planning_scene_namespace_to_use_for_current_namespace = None
         for namespace in [default_namespace] + custom_namespaces:
             planning_scene_namespace_to_use = self.declare_parameter(
                 f"{namespace}.planning_scene_namespace_to_use",
@@ -252,7 +257,7 @@ class CreateActionServers(Node):
                 "planning_scene_namespace_to_use"
             ] = planning_scene_namespace_to_use
             if namespace == self.namespace_to_use:
-                self.set_planning_scene_namespace_to_use(
+                planning_scene_namespace_to_use_for_current_namespace = (
                     planning_scene_namespace_to_use
                 )
 
@@ -365,6 +370,15 @@ class CreateActionServers(Node):
                 tick_rate=tick_rate.value,
             )
 
+        # Now that all of this node's parameters (including the action servers'
+        # tree_kwargs above) are declared, it is safe to push the planning scene
+        # namespace to ada_planning_scene: its startup may query this node's
+        # parameters, and those queries can only succeed once they're declared.
+        if planning_scene_namespace_to_use_for_current_namespace is not None:
+            self.set_planning_scene_namespace_to_use(
+                planning_scene_namespace_to_use_for_current_namespace
+            )
+
         return action_server_params
 
     def declare_namespace_parameters(self, namespace: str) -> None:
@@ -421,24 +435,56 @@ class CreateActionServers(Node):
         timeout_secs: float = 10.0,
         rate_hz: float = 10.0,
         reinit_same_namespace: bool = True,
+        max_attempts: int = 3,
     ) -> bool:
         """
-        Sets the planning scene namespace to use for the node. Further, it gets the
-        current parameter value for the planning scene node and, if it is different,
-        updates the parameter value for that node.
+        Sets the planning scene namespace to use for the node, retrying up to
+        `max_attempts` times. This is necessary because ada_planning_scene can
+        still be busy with its own (synchronous) startup -- e.g., loading collision
+        objects -- for longer than a single `timeout_secs` window after its
+        parameter services first appear on the ROS graph, in which case a single
+        attempt can time out even though the node is about to become responsive.
 
         Parameters
         ----------
         planning_scene_namespace_to_use: The planning scene namespace to use.
-        timeout_secs: The timeout in seconds for the service calls.
+        timeout_secs: The timeout in seconds for the service calls, per attempt.
         rate_hz: The rate at which to check for the parameter value.
         reinit_same_namespace: If True, reinitialize the planning scene node if the
             namespace is the same as the current one. This is useful e.g., to update the
             workspace walls with the new configurations. default: true.
+        max_attempts: The number of times to retry the full operation before
+            giving up.
 
         Returns
         -------
         True if the parameter was set successfully, False otherwise.
+        """
+        for attempt in range(1, max_attempts + 1):
+            if self._try_set_planning_scene_namespace_to_use(
+                planning_scene_namespace_to_use,
+                timeout_secs=timeout_secs,
+                rate_hz=rate_hz,
+                reinit_same_namespace=reinit_same_namespace,
+            ):
+                return True
+            if attempt < max_attempts:
+                self.get_logger().warn(
+                    f"Retrying (attempt {attempt + 1}/{max_attempts})..."
+                )
+        return False
+
+    def _try_set_planning_scene_namespace_to_use(
+        self,
+        planning_scene_namespace_to_use: str,
+        timeout_secs: float,
+        rate_hz: float,
+        reinit_same_namespace: bool,
+    ) -> bool:
+        """
+        A single attempt at setting the planning scene namespace to use. See
+        `set_planning_scene_namespace_to_use` for details; that function retries
+        this one on failure.
         """
         start_time = self.get_clock().now()
         timeout = rclpy.time.Duration(seconds=timeout_secs)
@@ -447,11 +493,21 @@ class CreateActionServers(Node):
         def cleanup():
             self.destroy_rate(rate)
 
+        def remaining_secs() -> float:
+            elapsed = (self.get_clock().now() - start_time).nanoseconds / 1.0e9
+            return max(0.0, timeout_secs - elapsed)
+
         if not reinit_same_namespace:
             # Wait for the service to be ready
-            self.planning_scene_set_parameters_client.wait_for_service(
-                (self.get_clock().now() - start_time).nanoseconds / 1.0e9
-            )
+            if not self.planning_scene_get_parameters_client.wait_for_service(
+                remaining_secs()
+            ):
+                self.get_logger().warn(
+                    "Timed out waiting for ada_planning_scene's get_parameters "
+                    "service to be ready."
+                )
+                cleanup()
+                return False
 
             # First, get the current value of the parameter
             request = GetParameters.Request()
@@ -484,9 +540,15 @@ class CreateActionServers(Node):
                 return True
 
         # Wait for the service to be ready
-        self.planning_scene_set_parameters_client.wait_for_service(
-            (self.get_clock().now() - start_time).nanoseconds / 1.0e9
-        )
+        if not self.planning_scene_set_parameters_client.wait_for_service(
+            remaining_secs()
+        ):
+            self.get_logger().warn(
+                "Timed out waiting for ada_planning_scene's set_parameters "
+                "service to be ready."
+            )
+            cleanup()
+            return False
 
         # Otherwise, set the parameter
         request = SetParametersAtomically.Request()
@@ -600,7 +662,22 @@ class CreateActionServers(Node):
                                 f"Resorting to default value {self.parameters[default_namespace][full_name]}."
                             )
                             value = self.parameters[default_namespace][full_name]
-                        self.set_planning_scene_namespace_to_use(value)
+                        # Run this in a background thread rather than blocking
+                        # here. `parameter_callback` runs in this node's
+                        # default callback group, which is the same group that
+                        # services this node's own `get_parameters` service.
+                        # `ada_planning_scene` calls that `get_parameters`
+                        # service back (e.g., to look up which robot
+                        # configurations to keep within the workspace walls)
+                        # as part of handling the namespace switch triggered
+                        # below. Blocking here would starve that group and
+                        # deadlock the two nodes against each other until both
+                        # sides' retries time out.
+                        threading.Thread(
+                            target=self.set_planning_scene_namespace_to_use,
+                            args=(value,),
+                            daemon=True,
+                        ).start()
 
                     # Handle tree_kwargs
                     if "tree_kwargs" not in full_name:
@@ -688,9 +765,16 @@ class CreateActionServers(Node):
                 # Change the parameter
                 self.parameters[namespace][full_name] = param_value
                 updated_parameters = True
-                # If this is the namespace we're using, update the planning_scene_namespace_to_use
+                # If this is the namespace we're using, update the planning_scene_namespace_to_use.
+                # Run in a background thread; see the comment at the other
+                # call site of `set_planning_scene_namespace_to_use` above for
+                # why this must not block `parameter_callback`.
                 if namespace == self.namespace_to_use:
-                    self.set_planning_scene_namespace_to_use(param_value)
+                    threading.Thread(
+                        target=self.set_planning_scene_namespace_to_use,
+                        args=(param_value,),
+                        daemon=True,
+                    ).start()
                 continue
 
             # Change a tree_kwarg

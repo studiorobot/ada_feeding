@@ -8,6 +8,7 @@ This module contains the main node for populating and maintaining ADA's planning
 
 # Standard imports
 import threading
+import time
 import traceback
 from typing import List
 
@@ -87,6 +88,11 @@ class ADAPlanningScene(Node):
             namespaces=self.__namespaces,
             namespace_to_use=self.__namespace_to_use,
         )
+
+        # Track the face/table detection updaters so they can be destroyed and
+        # recreated on re-initialization (e.g., namespace switches).
+        self.__update_from_face_detection = None
+        self.__update_from_table_detection = None
 
         # Add a callback to update the namespace to use
         self.add_on_set_parameters_callback(self.parameter_callback)
@@ -186,9 +192,22 @@ class ADAPlanningScene(Node):
         )
         self.__initialization_hz = initialization_hz.value
 
-    def initialize(self) -> bool:
+    def initialize(self, query_namespace: bool = True) -> bool:
         """
         Initialize the planning scene.
+
+        Parameters
+        ----------
+        query_namespace: If True, query `ada_feeding_action_servers` for the
+            namespace to use. This should only be done on the very first call
+            to `initialize` (i.e., at startup). Re-initializations triggered by
+            `parameter_callback` already know the new namespace (it is the
+            incoming parameter value) and must NOT re-query
+            `ada_feeding_action_servers`: that node is typically still blocked
+            waiting on the `set_parameters_atomically` call that triggered this
+            re-initialization in the first place, so querying it back here
+            would deadlock the two nodes against each other until both sides'
+            timeouts expire.
         """
         # pylint: disable=attribute-defined-outside-init
         # Fine for this method
@@ -197,7 +216,8 @@ class ADAPlanningScene(Node):
         start_time = self.get_clock().now()
 
         # Get the namespace to use
-        self.__get_namespace_to_use()
+        if query_namespace:
+            self.__get_namespace_to_use()
         self.get_logger().info(
             f"Using the `{self.__namespace_to_use}` namespace for the planning scene."
         )
@@ -223,6 +243,16 @@ class ADAPlanningScene(Node):
         # pylint: disable=unused-private-member
         # Update attributes contain subscribers and automatically perform work
         # even if not used.
+
+        # Destroy any previously-created face/table detection updaters. Since
+        # this method can be called repeatedly (e.g., once per namespace
+        # switch), failing to destroy the old ones would leak their timers and
+        # subscriptions, each of which would keep running against stale
+        # (previous-namespace) data indefinitely.
+        if self.__update_from_face_detection is not None:
+            self.__update_from_face_detection.destroy()
+        if self.__update_from_table_detection is not None:
+            self.__update_from_table_detection.destroy()
 
         # Create an object to process planning scene updates from face detection
         self.__update_from_face_detection = UpdateFromFaceDetection(
@@ -279,9 +309,16 @@ class ADAPlanningScene(Node):
         )
         # Wait for the service to be ready
         self.get_logger().info("Waiting for `ada_feeding_action_servers` to be ready.")
-        ada_feeding_get_parameters_client.wait_for_service(
-            (self.get_clock().now() - start_time).nanoseconds / 1.0e9
+        remaining = max(
+            0.0, timeout_secs - (self.get_clock().now() - start_time).nanoseconds / 1.0e9
         )
+        if not ada_feeding_get_parameters_client.wait_for_service(remaining):
+            self.get_logger().warn(
+                "Timed out waiting for `ada_feeding_action_servers` to be ready. "
+                "Using the default namespace in the `ada_planning_scene` YAML file."
+            )
+            cleanup()
+            return
         self.get_logger().info("`ada_feeding_action_servers` is ready.")
 
         # First, get `namespace_to_use` and `default.planning_scene_namespace_to_use`.
@@ -370,18 +407,14 @@ class ADAPlanningScene(Node):
                 self.__namespace_to_use = namespace_to_use
                 self.__initializer.namespace_to_use = namespace_to_use
                 self.__workspace_walls.namespace_to_use = namespace_to_use
-                # The hasattr is necessary in case this gets called before initialization is complete
-                if hasattr(self, "__update_from_face_detection"):
-                    self.__update_from_face_detection.namespace_to_use = (
-                        namespace_to_use
-                    )
-                if hasattr(self, "__update_from_table_detection"):
-                    self.__update_from_table_detection.namespace_to_use = (
-                        namespace_to_use
-                    )
 
-                # Re-initialize the planning scene
-                self.initialize()
+                # Re-initialize the planning scene. Skip re-querying
+                # `ada_feeding_action_servers` for the namespace to use: we
+                # already have it (it's `namespace_to_use` above), and
+                # `ada_feeding_action_servers` is typically still blocked on
+                # the `set_parameters_atomically` call that triggered this
+                # callback, so querying it back would deadlock the two nodes.
+                self.initialize(query_namespace=False)
 
         return SetParametersResult(successful=True)
 
@@ -423,11 +456,28 @@ def main(args: List = None) -> None:
     )
     spin_thread.start()
 
-    # Initialize the planning scene
-    success = ada_planning_scene.initialize()
+    # Initialize the planning scene. This can transiently fail if
+    # `ada_feeding_action_servers` hasn't yet declared the parameters this node
+    # queries it for (e.g., if it hasn't started, or is still earlier in its own
+    # startup), so retry a few times before giving up.
+    max_init_attempts = 3
+    success = False
+    for attempt in range(1, max_init_attempts + 1):
+        success = ada_planning_scene.initialize()
+        if success:
+            break
+        if attempt < max_init_attempts:
+            ada_planning_scene.get_logger().warn(
+                f"Failed to initialize the planning scene (attempt "
+                f"{attempt}/{max_init_attempts}). Retrying..."
+            )
+            time.sleep(2.0)
 
     if not success:
-        ada_planning_scene.get_logger().error("Exiting node.")
+        ada_planning_scene.get_logger().error(
+            f"Failed to initialize the planning scene after {max_init_attempts} "
+            "attempts. Exiting node."
+        )
         # If initialization fails, stop the node
         rclpy.shutdown()
 

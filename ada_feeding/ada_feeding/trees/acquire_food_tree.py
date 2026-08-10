@@ -57,6 +57,7 @@ from ada_feeding.idioms.bite_transfer import (
 from ada_feeding.idioms.ft_thresh_utils import ft_thresh_satisfied
 from ada_feeding.idioms.pre_moveto_config import set_parameter_response_all_success
 from ada_feeding.trees import MoveToTree, StartServoTree, StopServoTree
+from .activate_controller import ActivateControllerTree
 
 
 # pylint: disable=too-many-lines
@@ -187,6 +188,14 @@ class AcquireFoodTree(MoveToTree):
                         name + "RemoveWheelchairWall",
                     ),
                     workers=[
+                        # MoveIt2's execute_trajectory action always routes FollowJointTrajectory
+                        # goals to joint_trajectory_controller (it doesn't check which controller
+                        # the preceding motion/recovery left active), so it must be re-activated
+                        # here rather than assumed -- the acquisition attempt above may have
+                        # switched to jaco_arm_controller as part of its F/T-safety cleanup.
+                        ActivateControllerTree(
+                            self._node, controller_to_activate="joint_trajectory_controller"
+                        ).create_tree(name=name + "RestingActivateController").root,
                         py_trees_ros.service_clients.FromConstant(
                             name="ClearOctomap",
                             service_name="/clear_octomap",
@@ -205,25 +214,36 @@ class AcquireFoodTree(MoveToTree):
                                 "constraints": BlackboardKey("goal_constraints"),
                             },
                         ),
-                        py_trees.decorators.Timeout(
-                            name="RestingPlanTimeout",
-                            # Increase allowed_planning_time to account for ROS2 overhead and MoveIt2 setup and such
-                            duration=10.0
-                            * self.allowed_planning_time_to_resting_configuration,
-                            child=MoveIt2Plan(
-                                name="RestingPlan",
-                                ns=name,
-                                inputs={
-                                    "goal_constraints": BlackboardKey(
-                                        "goal_constraints"
-                                    ),
-                                    "max_velocity_scale": self.max_velocity_scaling_to_resting_configuration,
-                                    "max_acceleration_scale": self.max_acceleration_scaling_to_resting_configuration,
-                                    "allowed_planning_time": self.allowed_planning_time_to_resting_configuration,
-                                },
-                                outputs={
-                                    "trajectory": BlackboardKey("resting_trajectory")
-                                },
+                        py_trees.decorators.Retry(
+                            name="RestingPlanRetry",
+                            # RRTstar is randomized, so a failed planning attempt
+                            # (e.g., timeout without finding a solution) is often
+                            # solvable on retry. Without this, a single unlucky
+                            # planning attempt leaves the arm stranded with no
+                            # way to return to a safe resting configuration.
+                            num_failures=3,
+                            child=py_trees.decorators.Timeout(
+                                name="RestingPlanTimeout",
+                                # Increase allowed_planning_time to account for ROS2 overhead and MoveIt2 setup and such
+                                duration=10.0
+                                * self.allowed_planning_time_to_resting_configuration,
+                                child=MoveIt2Plan(
+                                    name="RestingPlan",
+                                    ns=name,
+                                    inputs={
+                                        "goal_constraints": BlackboardKey(
+                                            "goal_constraints"
+                                        ),
+                                        "max_velocity_scale": self.max_velocity_scaling_to_resting_configuration,
+                                        "max_acceleration_scale": self.max_acceleration_scaling_to_resting_configuration,
+                                        "allowed_planning_time": self.allowed_planning_time_to_resting_configuration,
+                                    },
+                                    outputs={
+                                        "trajectory": BlackboardKey(
+                                            "resting_trajectory"
+                                        )
+                                    },
+                                ),
                             ),
                         ),
                         MoveIt2Execute(
@@ -533,6 +553,14 @@ class AcquireFoodTree(MoveToTree):
             name=name,
             memory=True,
             children=[
+                # Activate the joint trajectory controller before attempting motion.
+                # MoveIt2's execute_trajectory action always routes FollowJointTrajectory
+                # goals to this controller (it doesn't check which controller the
+                # previous action left active), so it must be activated here rather
+                # than assumed.
+                ActivateControllerTree(
+                    self._node, controller_to_activate="joint_trajectory_controller"
+                ).create_tree(name=name + "ActivateController").root,
                 scoped_behavior(
                     name="Success",
                     # Set Approach F/T Thresh
@@ -962,6 +990,11 @@ class AcquireFoodTree(MoveToTree):
                     ]
                     + resting_position_behaviors,  # End Success.workers
                 ),  # End Success # TableCollision
+                # Re-activate jaco_arm_controller after motion completes so it's
+                # available for the next action (no re-tare to avoid timeout)
+                ActivateControllerTree(
+                    self._node, controller_to_activate="jaco_arm_controller", re_tare=False
+                ).create_tree(name=name + "RestoreControllerAfterMotion").root,
             ],  # End root_seq.children
         )  # End root_seq
 

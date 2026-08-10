@@ -10,6 +10,7 @@
   <arg name="use_rviz" default="True" description="Whether or not to launch RVIZ"/>
   <arg name="run_moveit" default="True" description="Whether or not to launch MoveIt"/>
   <arg name="run_planning_scene" default="True" description="Whether or not to launch the planning scene node"/>
+  <arg name="use_servo" default="True" description="Whether or not to launch MoveIt Servo (servo_node)"/>
 
   <!-- Launch MoveIt -->
   <group if="$(var run_moveit)">
@@ -18,6 +19,7 @@
       <arg name="log_level" value="$(var log_level)"/>
       <arg name="sim" value="$(var sim)"/>
       <arg name="use_rviz" value="$(var use_rviz)"/>
+      <arg name="use_servo" value="$(var use_servo)"/>
     </include>
   </group>
 

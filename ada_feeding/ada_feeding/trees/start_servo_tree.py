@@ -23,6 +23,36 @@ from .activate_controller import ActivateControllerTree
 from .trigger_tree import TriggerTree
 
 
+class _LogServiceResponseDebug(py_trees.decorators.Decorator):
+    """
+    TEMPORARY DEBUG DECORATOR. Logs the ~/start_servo response (or its
+    absence) on every tick, without altering the child's status. Remove once
+    the root cause of intermittent StartServoTree failures is found.
+    """
+
+    def __init__(self, name: str, child: py_trees.behaviour.Behaviour, node: Node, response_key: str):
+        super().__init__(name=name, child=child)
+        self._debug_node = node
+        self._response_key = response_key
+        self._debug_blackboard = py_trees.blackboard.Client(name=name + "DebugClient")
+        self._debug_blackboard.register_key(
+            key=response_key, access=py_trees.common.Access.READ
+        )
+
+    def update(self) -> py_trees.common.Status:
+        status = self.decorated.status
+        if self._debug_blackboard.exists(self._response_key):
+            response = self._debug_blackboard.get(self._response_key)
+            self._debug_node.get_logger().info(
+                f"[DEBUG StartServo] status={status}, response={response}"
+            )
+        else:
+            self._debug_node.get_logger().info(
+                f"[DEBUG StartServo] status={status}, no response on blackboard yet"
+            )
+        return status
+
+
 class StartServoTree(TriggerTree):
     """
     This behavior tree calls two ROS2 Services:
@@ -87,6 +117,14 @@ class StartServoTree(TriggerTree):
                         operator=operator.eq,
                     )
                 ],
+            )
+            # TEMPORARY: wrap with a debug decorator to log the ~/start_servo
+            # response, to diagnose intermittent StartServoTree failures.
+            start_servo = _LogServiceResponseDebug(
+                name=name + "StartServoDebugLog",
+                child=start_servo,
+                node=self._node,
+                response_key=start_servo_key_response,
             )
             children.append(start_servo)
 
