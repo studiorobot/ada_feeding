@@ -18,6 +18,14 @@ ada_feeding_action_servers:
       - -0.07051130178
       - -1.605353846
       - 1.838704367
+      MoveFromMouth.tree_kwargs.end_configuration:
+      - 0.0
+      - -0.7529350393
+      - 3.135484001
+      - -1.599070661
+      - -0.02722713633
+      - -0.8356636459
+      - 1.541823861
       MoveFromMouth.tree_kwargs.staging_configuration_position:
       - -0.6014194269891053
       - 0.08069224383248258
@@ -61,6 +69,14 @@ ada_feeding_action_servers:
       - -0.07051130178
       - -1.605353846
       - 1.838704367
+      MoveFromMouth.tree_kwargs.end_configuration:
+      - -0.4949753759
+      - 0.8592255908
+      - 3.03041518
+      - -1.656142927
+      - -1.567654734
+      - 1.727177828
+      - 2.164382805
       MoveFromMouth.tree_kwargs.linear_speed_near_mouth: 0.08
       MoveFromMouth.tree_kwargs.max_linear_speed_to_staging_configuration: 0.15
       MoveFromMouth.tree_kwargs.staging_configuration_position:
@@ -112,6 +128,14 @@ ada_feeding_action_servers:
     - side_staging_3
     - demo
     demo:
+      MoveFromMouth.tree_kwargs.end_configuration:
+      - 4.130670741
+      - 5.270894341
+      - 6.252118446
+      - 1.034980246
+      - 2.162113877
+      - 4.835085627
+      - 1.58947135
       MoveFromMouth.tree_kwargs.linear_speed_near_mouth: 0.08
       MoveFromMouth.tree_kwargs.max_linear_speed_to_staging_configuration: 0.15
       MoveFromMouth.tree_kwargs.staging_configuration_position:
@@ -141,54 +165,64 @@ ada_feeding_action_servers:
     namespace_to_use: side_staging_1
     side_staging_1:
       AcquireFood.tree_kwargs.resting_joint_positions:
-      - -0.4949753759
-      - 0.8592255908
-      - 3.03041518
-      - -1.656142927
-      - -1.567654734
-      - 1.727177828
-      - 2.164382805
+      - -0.2586577951
+      - 0.5075417465
+      - -3.13722933
+      - -1.015607092
+      - -1.580395638
+      - 1.433962513
+      - 3.165503664
       MoveAbovePlate.tree_kwargs.joint_positions:
-      - 0.2288126649
-      - 0.8197811497
+      - 0.0006981317
+      - 0.4845034004
       - 3.146654108
-      - -0.7192501847
-      - -0.07051130178
-      - -1.605353846
-      - 1.838704367
+      - -0.9658652081
+      - 0.01012290966
+      - -1.707979206
+      - 1.596103601
+      MoveFromMouth.tree_kwargs.end_configuration:
+      - -0.1581268302
+      - 0.3982841353
+      - 3.041585287
+      - -2.085144857
+      - -1.220683279
+      - 1.312138532
+      - 2.167000799
       MoveFromMouth.tree_kwargs.staging_configuration_position:
-      - -0.6081959669757366
-      - 0.07835060871598665
-      - 0.20003578660416194
+      - 0.5591410922880001
+      - -0.024081649199220956
+      - 0.6748867746903691
       MoveFromMouth.tree_kwargs.staging_configuration_quat_xyzw:
-      - 0.7144799976612057
-      - 0.07058338991982127
-      - -0.17428652585921275
-      - 0.6739143305446146
+      - 0.5868325266362336
+      - -0.3913627441756566
+      - 0.5857393370000211
+      - 0.3992145002925245
+      MoveToMouth.tree_kwargs.linear_speed_near_mouth: 0.06
+      MoveToMouth.tree_kwargs.max_linear_speed: 0.14
       MoveToRestingPosition.tree_kwargs.goal_configuration:
-      - -1.42859619
-      - 0.7262315018
-      - -0.03089232776
-      - -1.933999344
-      - 0.02722713633
-      - -1.161865683
-      - 1.592612942
+      - 1.474279619
+      - 0.7138396641
+      - 0.08831366015
+      - -1.935395608
+      - 0.07173303226
+      - -1.179668041
+      - 1.593485607
       MoveToStagingConfiguration.tree_kwargs.goal_configuration:
-      - 0.01989675347
-      - 1.073901089
-      - 3.092897967
-      - -1.240580032
-      - 1.693143907
-      - 1.6109389
-      - 0.718726586
+      - -0.2586577951
+      - 0.5075417465
+      - -3.13722933
+      - -1.015607092
+      - -1.580395638
+      - 1.433962513
+      - 3.165503664
       MoveToStowLocation.tree_kwargs.joint_positions:
-      - 0.0
-      - -0.7529350393
-      - 3.135484001
-      - -1.599070661
-      - -0.02722713633
-      - -0.8356636459
-      - 1.541823861
+      - 1.474279619
+      - 0.7138396641
+      - 0.08831366015
+      - -1.935395608
+      - 0.07173303226
+      - -1.179668041
+      - 1.593485607
       planning_scene_namespace_to_use: seated
     side_staging_2:
       AcquireFood.tree_kwargs.resting_joint_positions:
@@ -205,6 +239,13 @@ ada_feeding_action_servers:
       - 0.7550125606240812
       - -1.8810567243180003
       - -3.3398213209043153
+      MoveFromMouth.tree_kwargs.end_configuration:
+      - -0.9312115594014667
+      - 4.543584514690017
+      - 4.655251924461476
+      - 0.7394639609157636
+      - -1.8431887041459447
+      - -2.598331227031222
       MoveFromMouth.tree_kwargs.staging_configuration_position:
       - 0.037235594565912356
       - 0.02990399812200957
@@ -251,6 +292,13 @@ ada_feeding_action_servers:
       - 0.7550125606240812
       - -1.8810567243180003
       - -3.3398213209043153
+      MoveFromMouth.tree_kwargs.end_configuration:
+      - -0.9312115594014667
+      - 4.543584514690017
+      - 4.655251924461476
+      - 0.7394639609157636
+      - -1.8431887041459447
+      - -2.598331227031222
       MoveFromMouth.tree_kwargs.staging_configuration_position:
       - 0.037235594565912356
       - 0.02990399812200957
@@ -298,6 +346,13 @@ ada_feeding_action_servers:
       - -0.04485496178
       - -1.283349599
       - 1.57097086
+      MoveFromMouth.tree_kwargs.end_configuration:
+      - -0.6009865084504753
+      - 4.406308680508575
+      - 4.342634895689761
+      - -5.48339275809026
+      - 4.099009718117641
+      - 3.976385530989377
       MoveFromMouth.tree_kwargs.staging_configuration_position:
       - -0.011402569359730129
       - 0.029461197720583806

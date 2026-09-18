@@ -552,10 +552,13 @@ class SegmentFromPointNode:
         # Convert the image to a tensor
         image_tensor = transforms.ToTensor()(image).to(device=self.device)
 
-        # Convert the seed point to a tensor
-        input_points = torch.tensor(np.array(seed_point).reshape((1, 1, 1, 2))).to(
-            device=self.device
-        )
+        # Convert the seed point to a tensor. EfficientSAM's get_rescaled_pts
+        # mixes this tensor with float32 constants (e.g., -1.0) in torch.where,
+        # which this environment's PyTorch build (1.8.0a0) does not
+        # auto-promote, so the dtype must be float32 explicitly.
+        input_points = torch.tensor(
+            np.array(seed_point).reshape((1, 1, 1, 2)), dtype=torch.float32
+        ).to(device=self.device)
 
         # Convert the labels to a tensor
         input_labels = torch.tensor([[[1]]]).to(device=self.device)

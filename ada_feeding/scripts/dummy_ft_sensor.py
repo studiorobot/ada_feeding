@@ -10,6 +10,22 @@ dying) and/or start publishing zero-variance values (i.e., to mimic the sensor
 getting corrupted). The node is intended to be used to test the ADAWatchdog
 node.
 
+In addition to that baseline noise, this node also approximates real contact
+force: it periodically looks up (via TF) the height of a configured contact
+link (the fork tine, by default) relative to a configured table surface
+height, and if the link has dipped below the table, adds a synthetic force
+proportional to the penetration depth. This exists because the mock/kinematic
+hardware stack has no physics engine, so nothing else in simulation can
+generate a signal that reflects the robot actually touching something.
+
+Note this deliberately does NOT go through MoveIt's collision checker (e.g.
+/check_state_validity): AcquireFood's MoveInto motion runs with table
+collisions explicitly *allowed* in the Allowed Collision Matrix (see
+AllowTable in acquire_food_tree.py), precisely so the fork can approach the
+table -- so a check that respects the ACM would never see a "collision"
+during the one motion this is meant to guard. A raw TF height comparison is
+immune to ACM state.
+
 Usage:
 - Run the node: `ros2 run ada_feeding dummy_ft_sensor`
 - Subscribe to the sensor data: `ros2 topic echo /wireless_ft/ftSensor1`
@@ -18,6 +34,8 @@ Usage:
     `ros2 param set /dummy_ft_sensor std [0.0, 0.0, 0.0, 0.0, 0.0, 0.0]`
 - Start publishing data where one dimension is zero-variance:
     `ros2 param set /dummy_ft_sensor std [0.0, 0.1, 0.1, 0.1, 0.1, 0.1]`
+- Disable the collision-based synthetic force:
+    `ros2 param set /dummy_ft_sensor collision_stiffness 0.0`
 """
 
 # Standard imports
@@ -31,6 +49,7 @@ import rclpy
 from rclpy.executors import MultiThreadedExecutor
 from rclpy.node import Node
 from std_srvs.srv import SetBool
+import tf2_ros
 
 
 class DummyForceTorqueSensor(Node):
@@ -101,6 +120,84 @@ class DummyForceTorqueSensor(Node):
             self.set_bias_callback,
         )
 
+        # Parameters for the synthetic, contact-based force. The mock
+        # hardware stack has no physics engine, so this is the only way to
+        # make simulated contact (e.g., the fork touching the table)
+        # produce a force signal at all. This is computed from a raw TF
+        # height comparison rather than MoveIt collision checking, since the
+        # motion this guards (MoveInto) deliberately runs with table
+        # collisions allowed in MoveIt's ACM (see module docstring).
+        self.contact_link = self.declare_parameter(
+            "contact_link",
+            "forkTine",
+            ParameterDescriptor(
+                name="contact_link",
+                type=ParameterType.PARAMETER_STRING,
+                description=(
+                    "The robot link (TF frame) whose height is compared against "
+                    "table_top_z to estimate contact."
+                ),
+            ),
+        )
+        self.table_frame_id = self.declare_parameter(
+            "table_frame_id",
+            "root",
+            ParameterDescriptor(
+                name="table_frame_id",
+                type=ParameterType.PARAMETER_STRING,
+                description="The TF frame that table_top_z is expressed in.",
+            ),
+        )
+        self.table_top_z = self.declare_parameter(
+            "table_top_z",
+            -0.615,
+            ParameterDescriptor(
+                name="table_top_z",
+                type=ParameterType.PARAMETER_DOUBLE,
+                description=(
+                    "m. Height of the table surface in table_frame_id. This is a "
+                    "fixed physical quantity (the arm is rigidly mounted to the "
+                    "table), so unlike the table's x/y it is not expected to "
+                    "change per-scene; keep it in sync with the table object's "
+                    "z position in ada_planning_scene_kortex.yaml."
+                ),
+            ),
+        )
+        self.collision_stiffness = self.declare_parameter(
+            "collision_stiffness",
+            2000.0,
+            ParameterDescriptor(
+                name="collision_stiffness",
+                type=ParameterType.PARAMETER_DOUBLE,
+                description=(
+                    "N/m. Synthetic contact force = stiffness * max(0, table_top_z "
+                    "- contact_link height). 0.0 disables this."
+                ),
+            ),
+        )
+        self.collision_check_hz = self.declare_parameter(
+            "collision_check_hz",
+            20.0,
+            ParameterDescriptor(
+                name="collision_check_hz",
+                type=ParameterType.PARAMETER_DOUBLE,
+                description="Rate (Hz) at which to look up contact_link's height.",
+            ),
+        )
+
+        # TF buffer/listener used to look up contact_link's height.
+        self.tf_buffer = tf2_ros.Buffer()
+        self.tf_listener = tf2_ros.TransformListener(self.tf_buffer, self)
+
+        # Track the latest penetration depth of contact_link below the table.
+        self.latest_penetration_depth = 0.0
+        self.latest_penetration_depth_lock = threading.Lock()
+        self.collision_check_timer = self.create_timer(
+            1.0 / self.collision_check_hz.value,
+            self.check_collision,
+            callback_group=self._default_callback_group,
+        )
+
         # Create the publisher
         self.ft_msg = WrenchStamped()
         self.publisher_ = self.create_publisher(
@@ -112,6 +209,42 @@ class DummyForceTorqueSensor(Node):
         self.timer = self.create_timer(timer_period, self.publish_msg)
 
         self.get_logger().info("Initialized!")
+
+    def check_collision(self) -> None:
+        """
+        Periodically look up contact_link's height in table_frame_id and, if
+        it has dipped below table_top_z, record the penetration depth. Note
+        this is independent of MoveIt's Allowed Collision Matrix by design --
+        see module docstring -- and does not account for the contact link's
+        x/y position, so it treats any dip below table height, anywhere in
+        the workspace, as contact. That's an intentional simplification: a
+        false positive far from the table is much cheaper than a missed
+        collision near it.
+        """
+        if self.collision_stiffness.value <= 0.0:
+            return
+
+        try:
+            transform = self.tf_buffer.lookup_transform(
+                self.table_frame_id.value,
+                self.contact_link.value,
+                rclpy.time.Time(),
+            )
+        except tf2_ros.TransformException as exc:
+            # Best-effort: if TF isn't available yet, just fall back to
+            # whatever penetration depth was last recorded.
+            self.get_logger().warn(
+                f"Could not look up '{self.contact_link.value}' in "
+                f"'{self.table_frame_id.value}': {exc}",
+                throttle_duration_sec=5.0,
+            )
+            return
+
+        contact_link_z = transform.transform.translation.z
+        depth = max(0.0, self.table_top_z.value - contact_link_z)
+
+        with self.latest_penetration_depth_lock:
+            self.latest_penetration_depth = depth
 
     def set_bias_callback(self, request: SetBool.Request, response: SetBool.Response):
         """
@@ -152,11 +285,18 @@ class DummyForceTorqueSensor(Node):
                 self.get_parameter("mean").value, self.get_parameter("std").value
             )
 
+            # Add a synthetic contact force, proportional to how far
+            # contact_link is currently below the table (0.0 if not in
+            # contact, or if TF is unavailable).
+            with self.latest_penetration_depth_lock:
+                penetration_depth = self.latest_penetration_depth
+            contact_force_z = self.collision_stiffness.value * penetration_depth
+
             # Generate the force-torque sensor message
             self.ft_msg.header.stamp = self.get_clock().now().to_msg()
             self.ft_msg.wrench.force.x = ft_data[0]
             self.ft_msg.wrench.force.y = ft_data[1]
-            self.ft_msg.wrench.force.z = ft_data[2]
+            self.ft_msg.wrench.force.z = ft_data[2] + contact_force_z
             self.ft_msg.wrench.torque.x = ft_data[3]
             self.ft_msg.wrench.torque.y = ft_data[4]
             self.ft_msg.wrench.torque.z = ft_data[5]

@@ -46,6 +46,7 @@
     <remap from="~/cartesian_twist_cmds" to="/jaco_arm_cartesian_controller/twist_cmd" />
     <remap from="~/servo_status" to="/servo_node/status" />
     <remap from="~/stop_servo" to="/servo_node/stop_servo" />
+    <remap from="~/set_servo_node_parameters" to="/servo_node/set_parameters" />
     <remap from="~/action_select" to="/ada_feeding_action_select/action_select" />
     <remap from="~/action_report" to="/ada_feeding_action_select/action_report" />
     <remap from="~/modify_collision_object" to="/ada_planning_scene/modify_collision_object" />

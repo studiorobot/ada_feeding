@@ -19,6 +19,7 @@ import py_trees
 from py_trees.blackboard import Blackboard
 from py_trees.behaviours import Success
 import py_trees_ros
+from rcl_interfaces.msg import Parameter, ParameterType, ParameterValue
 from rcl_interfaces.srv import SetParameters
 import rclpy
 from rclpy.node import Node
@@ -64,6 +65,48 @@ from .activate_controller import ActivateControllerTree
 # This tree is the cruz of bite acquisition, hence is long.
 
 
+class _MoveIntoExecuteSucceedsOnFTPreempt(py_trees.decorators.Decorator):
+    """
+    Reflects FAILURE of the decorated Parallel(MoveInto execute, F/T monitor)
+    as SUCCESS only when the F/T monitor is what caused the failure (i.e.,
+    contact force/torque exceeded threshold, which is the expected way for
+    MoveInto to end since joint_trajectory_controller has no built-in
+    F/T-based abort). If MoveInto's own execution failed for an unrelated
+    reason (e.g., the trajectory was aborted before any contact was made),
+    the FAILURE is preserved so a real execution failure isn't misreported
+    as a successful skewer.
+    """
+
+    def __init__(
+        self,
+        name: str,
+        child: py_trees.behaviour.Behaviour,
+        ft_monitor_name: str,
+    ):
+        super().__init__(name=name, child=child)
+        self.ft_monitor_name = ft_monitor_name
+
+    def update(self) -> py_trees.common.Status:
+        if self.decorated.status != py_trees.common.Status.FAILURE:
+            return self.decorated.status
+        ft_monitor = next(
+            (
+                child
+                for child in self.decorated.children
+                if child.name == self.ft_monitor_name
+            ),
+            None,
+        )
+        if (
+            ft_monitor is not None
+            and ft_monitor.status == py_trees.common.Status.FAILURE
+        ):
+            self.feedback_message = "F/T threshold exceeded, contact detected"
+            return py_trees.common.Status.SUCCESS
+        self.feedback_message = self.decorated.feedback_message
+        return py_trees.common.Status.FAILURE
+
+
 class AcquireFoodTree(MoveToTree):
     """
     A behaviour tree to select and execute an acquisition
@@ -97,6 +140,9 @@ class AcquireFoodTree(MoveToTree):
         allowed_planning_time_for_move_into: float = 0.5,
         allowed_planning_time_to_resting_configuration: float = 0.5,
         allowed_planning_time_for_recovery: float = 0.5,
+        force_threshold_move_into: float = 4.0,
+        torque_threshold_move_into: float = 0.0,
+        move_above_dist_m: float = 0.05,
     ):
         """
         Initializes tree-specific parameters.
@@ -115,6 +161,14 @@ class AcquireFoodTree(MoveToTree):
         allowed_planning_time_for_move_into: Allowed planning time for move into
         allowed_planning_time_to_resting_configuration: Allowed planning time for move to resting configuration
         allowed_planning_time_for_recovery: Allowed planning time for recovery
+        force_threshold_move_into: Force threshold (N) that aborts the MoveInto execution.
+            MoveInto is executed via joint_trajectory_controller, which has no
+            built-in F/T-based abort (unlike jaco_arm_controller's ForceGateController),
+            so this is enforced by a live tree-level monitor running in parallel with
+            the execution instead.
+        torque_threshold_move_into: Torque threshold (Nm) that aborts the MoveInto
+            execution. See force_threshold_move_into. 0.0 disables the torque check.
+        move_above_dist_m: Distance (m) above the food to plan MoveAbovePose to.
         """
         # Initialize ActionServerBT
         super().__init__(node)
@@ -137,6 +191,9 @@ class AcquireFoodTree(MoveToTree):
             allowed_planning_time_to_resting_configuration
         )
         self.allowed_planning_time_for_recovery = allowed_planning_time_for_recovery
+        self.force_threshold_move_into = force_threshold_move_into
+        self.move_above_dist_m = move_above_dist_m
+        self.torque_threshold_move_into = torque_threshold_move_into
 
     @override
     def create_tree(
@@ -454,7 +511,7 @@ class AcquireFoodTree(MoveToTree):
                                     "action_response"
                                 ),
                                 "action": action,
-                                # Default move_above_dist_m = 0.05
+                                "move_above_dist_m": self.move_above_dist_m,
                                 # Default food_frame_id = "food"
                                 # Default approach_frame_id = "approach"
                             },
@@ -478,6 +535,11 @@ class AcquireFoodTree(MoveToTree):
                         inputs={
                             "pose": BlackboardKey("move_above_pose"),
                             "frame_id": "food",
+                            # No target_link override: move_above_pose is already
+                            # re-targeted to the MoveIt tip link (ada_end_effector_link)
+                            # by ComputeActionConstraints, since only that link has a
+                            # configured IK solver.
+                            "tolerance_position": 0.01,  # m, was 0.001 default; TEST for narrow-goal planning failure
                             "tolerance_orientation": [
                                 0.01,
                                 0.01,
@@ -516,6 +578,7 @@ class AcquireFoodTree(MoveToTree):
                         inputs={
                             "pose": BlackboardKey("move_into_pose"),
                             "frame_id": "food",
+                            # No target_link override: see MoveAbovePose above.
                         },
                         outputs={
                             "constraints": BlackboardKey("goal_constraints"),
@@ -767,18 +830,45 @@ class AcquireFoodTree(MoveToTree):
                                                 ),
                                             ),
                                         ),
-                                        # MoveInto expect F/T failure
-                                        py_trees.decorators.FailureIsSuccess(
+                                        # MoveInto expect F/T failure.
+                                        # joint_trajectory_controller (which
+                                        # MoveIt2Execute always targets) has no
+                                        # built-in F/T-based abort, so a live
+                                        # F/T monitor races the execution here
+                                        # and preempts it (canceling the goal
+                                        # via MoveIt2Execute.terminate()) as
+                                        # soon as contact force/torque exceeds
+                                        # threshold. Only that F/T-triggered
+                                        # preemption counts as success; if
+                                        # MoveInto's execution instead fails on
+                                        # its own (e.g., the trajectory is
+                                        # aborted before any contact is made),
+                                        # the failure must propagate so we
+                                        # don't report a skewer that never
+                                        # happened.
+                                        _MoveIntoExecuteSucceedsOnFTPreempt(
                                             name="MoveIntoExecuteSucceed",
-                                            child=MoveIt2Execute(
-                                                name="MoveInto",
-                                                ns=name,
-                                                inputs={
-                                                    "trajectory": BlackboardKey(
-                                                        "move_into_trajectory"
-                                                    )
-                                                },
-                                                outputs={},
+                                            ft_monitor_name="MoveIntoFTMonitor",
+                                            child=py_trees.composites.Parallel(
+                                                name="MoveIntoWithFTMonitor",
+                                                policy=py_trees.common.ParallelPolicy.SuccessOnAll(),
+                                                children=[
+                                                    MoveIt2Execute(
+                                                        name="MoveInto",
+                                                        ns=name,
+                                                        inputs={
+                                                            "trajectory": BlackboardKey(
+                                                                "move_into_trajectory"
+                                                            )
+                                                        },
+                                                        outputs={},
+                                                    ),
+                                                    ft_thresh_satisfied(
+                                                        name="MoveIntoFTMonitor",
+                                                        f_mag=self.force_threshold_move_into,
+                                                        t_mag=self.torque_threshold_move_into,
+                                                    ),
+                                                ],
                                             ),
                                         ),
                                         ### Scoped Behavior for Moveit2_Servo

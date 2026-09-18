@@ -11,6 +11,7 @@ ada_feeding_action_servers:
           max_velocity_scaling_to_resting_configuration: 1.0
           allowed_planning_time_for_move_above: 4.5 # secs, was 0.5 default; real octomap collision checking needs more time
           allowed_planning_time_for_move_into: 4.5 # secs, was 0.5 default; real octomap collision checking needs more time
+          move_above_dist_m: 0.10 # m, was 0.05 default; TEST for octomap padding eating into clearance
           resting_joint_positions:
           - -2.02859619
           - 0.7262315018
@@ -26,6 +27,7 @@ ada_feeding_action_servers:
         - max_velocity_scaling_to_resting_configuration
         - allowed_planning_time_for_move_above
         - allowed_planning_time_for_move_into
+        - move_above_dist_m
       ActivateController:
         action_type: ada_feeding_msgs.action.ActivateController
         tick_rate: 10
@@ -58,6 +60,14 @@ ada_feeding_action_servers:
         tree_kwargs:
           cartesian_jump_threshold_to_staging_configuration: 2.0
           cartesian_max_step_to_staging_configuration: 0.01
+          end_configuration:
+          - -2.152514566
+          - -1.012290966
+          - -0.03106686069
+          - -1.034980246
+          - 2.162113877
+          - -1.44809968
+          - 1.58947135
           linear_speed_near_mouth: 0.08
           max_linear_speed_to_staging_configuration: 0.15
           max_velocity_scaling_factor_to_end_configuration: 1.0
@@ -80,6 +90,7 @@ ada_feeding_action_servers:
         - max_velocity_scaling_factor_to_end_configuration
         - cartesian_jump_threshold_to_staging_configuration
         - cartesian_max_step_to_staging_configuration
+        - end_configuration
       MoveToConfiguration:
         action_type: ada_feeding_msgs.action.MoveToConfiguration
         tick_rate: 10

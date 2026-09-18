@@ -346,14 +346,12 @@ unset CYCLONEDDS_URI
 
 ## 10. Build Your Workspace
 
-> Note: Currently, communication with hardware is not set up. Therefore, the following command will only build the packages needed for simulation 
-
 ```bash
 cd ~/YOUR_WORKSPACE_PATH
-colcon build --symlink-install --packages-skip KinovaExample ada_hardware
+colcon build --symlink-install --packages-skip KinovaExample
 ```
 
-> To build all packages (if hardware is ready):
+> To build all packages:
 
 ```bash
 colcon build --symlink-install
@@ -411,7 +409,26 @@ sudo ufw allow 3000
 
 ---
 
-## 12. Running the Software
+## 12. Setting up your .bashrc
+
+> If it hasn't already been done for your user profile, you will want to add a few lines to your .bashrc to make launching ADA easier
+> .bashrc is a shell script that runs every time you open a new terminal. By adding these lines to it, it will automatically run these lines in any terminal you open, which will be necessary for ADA to run correctly. You should only have to do this once. 
+> To edit your .bashrc file:
+
+```bash
+nano ~/.bashrc
+```
+
+> Then add these lines to the bottom of the .bashrc file
+```bash
+source install/setup.bash
+source /opt/ros/humble/setup.bash 
+export ROS_DOMAIN_ID=42
+```
+
+> Hit CTRL+S to save the changes and then CTRL+X to exit the file
+
+## 13. Running the Software
 
 > Currently, we are testing using Option B: Mock Robot as the real robot has not been configured to use yet.
 > We use the convenience script start.py to launch the software. This script has several command-line arguments, which can be seen by passing the -h flag when running the script.
@@ -420,6 +437,7 @@ sudo ufw allow 3000
 
 > This option starts the web app and the real robot code, and can be used to test the entire system. This will by default start the web app on port 80, and requires sudo access. The robot's HDMI connection must be plugged into your computer, and your computer should be connected to the robot's router with an ethernet cable.
 > NOTE: If not running on the production machine i.e., lovelace, it's recommended that you append the command line flag --dev to the start script. This will launch RVIZ, will not require the e-stop button to be plugged in, and will not require sudo access to launch the web app.
+>NOTE: Robot Studio's iteration does not have the same e-stop device as Personal Robotics, so the --dev command line flag is neccessary to run ADA on our hardware
 
 ```bash
 cd ~/YOUR_WORKSPACE_PATH
@@ -456,7 +474,7 @@ python3 src/ada_feeding/start.py --sim mock_jaco
 python3 src/ada_feeding/start.py --sim mock_jaco -c
 ```
 
-**For Gen3 Kortex Robot (Not functional yet):**
+**For Gen3 Kortex Robot:**
 
 ```bash
 cd ~/YOUR_WORKSPACE_PATH
@@ -488,12 +506,13 @@ python3 src/ada_feeding/start.py --sim dummy
 python3 src/ada_feeding/start.py --sim dummy -c
 ```
 
-# 13. Work in Progress
+# 14. Work in Progress
 
 ## Current Status
 
-- The feeding setup is currently functional for **older Jaco 2 robots**.  
-- **Food acquisition** is the only action not working, likely because there is no actual plate of food for the robot to acquire.
+- The feeding setup is currently functional for **older Jaco 2 robots and the sim for the Gen3 Kinova arm**.  
+- **Food acquisition** is the only action not working, likely because there is no actual plate of food for the robot to acquire (true for both of the above).
+- 
 
 ---
 
@@ -519,21 +538,17 @@ ros2 launch ada_moveit demo.launch.py sim:=mock
 
 To run the Gen 3 robot in simulation, temporarily switch the description files in `ada_description`:
 
-1. Navigate to the `urdf` folder.
-2. Rename files:
-
-   ```text
-   ada.xacro → ada.jaco2.txt
-   ada.gen3.txt → ada.xacro
-   ```
-3. In the `rviz` folder, rename:
-
-   ```text
-   view_robot.rviz → view_robot.jaco2.txt
-   view_robot.gen3.txt → view_robot.rviz
-   ```
-
-> This swaps in the Gen 3 description while preserving Jaco2 files. Currently working on a way to do this without having to switch config files between Jaco2 vs Gen3. 
+1. Navigate to the `ada_ros2` folder.
+2. Use git to check which branch you are on
+  ```bash 
+  git branch
+  ```
+3. Switch to the jaco2 branch for Gen 2, switch to the main branch for Gen 3
+  ```bash
+  git switch main
+    OR
+  git switch jaco2
+  ```
 
 ### After Switching Files
 
@@ -555,25 +570,27 @@ source ../install/setup.bash
 ros2 launch ada_moveit_kortex demo.launch.py sim:=mock
 ```
 
-> This will allow you to see ada_ros2 working with Gen 3 in simulation. You should be able to plan motions for the Gen 3 robot in RVIZ. 
-> The orientation of the fork and camera mount need to be fixed.
+> TODO: The orientation of the fork and camera mount need to be fixed.
 
 ---
 
 ## Next Steps for Full Simulation Integration with `ada_feeding`
 
-* A planning scene needs to be created that defines where and when the Gen 3 robot should move.
-* This ensures coordinated operation with the feeding application.
+* AcquireFood behavior does not currently function. It is not expected to fully function, because there is no physics in the sim that indicated when the force torques sensor has contacted the plate/table. 
+* However, the MoveInto sub-action of AcquireFood does not currently work in sim, which needs to be addressed.
+* AcquireFood consists of two actions: MoveAbove and MoveInto. MoveInto should bring the fork dow into the food on the plate to skewer it. Currently, MoveInto does not trigger during AcquireFood. This needs to be investigated.
 
 ---
 
 ## Next Steps for Full Hardware Integration with `ada_feeding`
 
-1. The **Kortex API** is installed in the repository.
-2. Write a `gen3.cpp` file using the **Kortex API** to control the Gen 3 hardware.
+* After changing table heights, the MoveToMouth and MoveFromMouth behavior trees no longer work. 
+* MoveToMouth should detect the user's face and move accordingly. Face detection is working, but the motion planner fails to find a path
+* MoveFromMouth should move the arm away from the user and into staging configuration after the user takes the bite of food from the fork. MoveFromMouth currently moves back to it's previous staging configuration from the old table height, not the newly defined one.
+* Investigate MoveToMouth first, then MoveFromMouth, as it is dependent on MoveToMouth getting to the correct pose. 
 
 
-# 14. Troubleshooting
+# 15. Troubleshooting
 
 ## Debugging with Screens
 
@@ -601,7 +618,7 @@ screen -r <screen_name>
 ```
 
 2. Start logging the session:
-
+Press Ctrl and A at the same time, then let go and hit shift+H to start logging to screenlog.0
 ```
 Ctrl-A H
 ```
@@ -609,7 +626,7 @@ Ctrl-A H
 > This will save output to `screenlog.0` in the current directory.
 
 3. To stop logging:
-
+Same keybind as starting logging
 ```
 Ctrl-A H
 ```
@@ -619,6 +636,39 @@ Ctrl-A H
 ```bash
 mv screenlog.0 ~/logs/<screen_name>_$(date).log
 ```
+
+5. To exit a screen, close ADA with the -c flag and then:
+```
+Ctrl+D
+```
+
+### Brief screen description
+1. web
+Shows log for the web app React UI
+
+2. webrtc
+Shows log for the web app WebRTC streaming which handles live video streaming to the web app
+
+3. camera
+Shows log for the Intel Realsense depth camera
+
+4. ft
+Shows log for force torque sensor
+
+5. rosbridge
+Shows log for the connection bridge between the ROS2 framework and the web app
+
+6. perception
+Shows log for perception system, including face detection and table detection
+
+7. moveit
+Shows log for the MoveIt2 motion planner, including error codes for failure debugging
+
+8. feeding
+Shows log for the ROS2 feeding pipeline, including which behavior trees have been triggered and whether or not they succeeded
+
+9. browser
+Shows log for the communication between the browser/web app and ROS2 framework
 
 ---
 
@@ -823,6 +873,13 @@ rm -rf ~/.moveit
 
 ## Web App Stuck on “Robot is Thinking”
 
+First check that the feeding pipeling has loaded correctly by running
+
+ ```bash
+ screen -r feeding
+ ```
+If this screen shows "SIOCADDRT: File exists" and the end of the program that was running, that means feeding never started correctly. This is fixed easily by closing ADA with -c command line flag and re-running ADA
+
 If everything seems to load correctly but the **web app never gets past “thinking”** and **simulation does not move**, first verify that **ROS2 and the action servers are actually responding**.
 
 1. From the `ada_feeding/ada_feeding` directory, run the following tests (from the original PRL README):
@@ -850,3 +907,5 @@ Next steps:
 This often resolves the web app getting stuck after successful ROS2 startup.
 
 ---
+
+## 

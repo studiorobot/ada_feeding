@@ -76,7 +76,7 @@ ada_planning_scene:
         filename: table.stl
         # Initial predicted position and orientation of the table; these values get
         # updated as the robot perceives the table.
-        position: [0.08, -0.5, -0.56]
+        position: [0.1016, -0.28575, 0.01905]
         quat_xyzw: [0.0, 0.0, 0.0, 1.0]
         offsets: [-0.20, -0.25, -0.689]
         frame_id: root # the frame_id that the pose is relative to
@@ -355,8 +355,8 @@ ada_planning_scene:
     table_detection:
       seated:
         table_origin_offset: [-0.20, -0.25, -0.79]
-        table_rotation_threshold: 0.349
-        table_distance_threshold: 0.5
+        table_rotation_threshold: 3.15 #was 0.349
+        table_distance_threshold: 5.0 #was 0.5
       seated_90:
         table_origin_offset: [-0.10, -0.25, -0.79]
         table_rotation_threshold: 0.349

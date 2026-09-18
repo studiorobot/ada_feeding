@@ -12,6 +12,7 @@ wrap that behaviour tree in a ROS2 action server.
 
 # Standard imports
 from collections.abc import Sequence
+import math
 from typing import Annotated, Tuple
 
 # Third-party imports
@@ -35,6 +36,11 @@ from std_srvs.srv import Empty
 # Local imports
 from ada_feeding_msgs.action import MoveToMouth
 from ada_feeding_msgs.msg import FaceDetection
+from ada_feeding.behaviors.moveit2 import (
+    MoveIt2Plan,
+    MoveIt2Execute,
+    MoveIt2PoseConstraint,
+)
 from ada_feeding.behaviors.ros import (
     GetTransform,
     SetStaticTransform,
@@ -43,10 +49,10 @@ from ada_feeding.behaviors.ros import (
 from ada_feeding.behaviors.transfer import ComputeMouthFrame
 from ada_feeding.helpers import BlackboardKey
 from ada_feeding.idioms import (
+    ft_thresh_satisfied,
     pre_moveto_config,
     retry_call_ros_service,
     scoped_behavior,
-    servo_until_pose,
     wait_for_secs,
 )
 from ada_feeding.idioms.bite_transfer import (
@@ -56,8 +62,7 @@ from ada_feeding.idioms.bite_transfer import (
 from ada_feeding.trees import (
     MoveToTree,
 )
-from .start_servo_tree import StartServoTree
-from .stop_servo_tree import StopServoTree
+from .activate_controller import ActivateControllerTree
 
 
 class MoveToMouthTree(MoveToTree):
@@ -88,12 +93,19 @@ class MoveToMouthTree(MoveToTree):
         linear_speed_near_mouth: float = 0.025,
         angular_speed_near_mouth: float = 0.075,
         wheelchair_collision_object_id: str = "body",
-        force_threshold: float = 1.0,
-        torque_threshold: float = 1.0,
+        # NOTE: measured on real hardware after fixing F/T sensor biasing
+        # (see udpSetSoftwareBias): steady-state ||F|| during normal servoing
+        # is ~1.2N mean, ~4.5N peak, and ||T|| peaks ~1.26N*m -- the previous
+        # defaults (1.0/1.0) sat below that natural noise floor and caused
+        # the gate to flicker pass/fail every cycle instead of cleanly
+        # tripping on real contact. These give real margin above the
+        # observed peaks.
+        force_threshold: float = 5.5,
+        torque_threshold: float = 1.5,
         allowed_face_distance: Tuple[float, float] = (0.4, 1.25),
         face_detection_msg_timeout: float = 5.0,
         face_detection_timeout: float = 2.5,
-        plan_distance_from_mouth: Annotated[Sequence[float], 3] = (0.025, 0.0, -0.01),
+        plan_distance_from_mouth: Annotated[Sequence[float], 3] = (0.05, 0.0, -0.01),
         fork_target_orientation_from_mouth: Tuple[float, float, float, float] = (
             0.5,
             -0.5,
@@ -229,27 +241,80 @@ class MoveToMouthTree(MoveToTree):
             [name, self.face_detection_relative_blackboard_key]
         )
 
-        # Use a custom speed profile to do angular motions at the end.
-        max_pose_distance = 0.3
-
-        def speed(post_stamped: PoseStamped) -> Tuple[float, float]:
+        def move_to_mouth_via_jtc(
+            tolerance_position: float, tolerance_orientation: float, suffix: str
+        ) -> py_trees.behaviour.Behaviour:
             """
-            Linearly interpolate the speed between max_{linear/angular}_speed and
-            {linear/angular}_speed_near_mouth as the robot moves closer to the mouth.
+            Builds a Sequence that activates joint_trajectory_controller, plans
+            a Cartesian path to `goal_pose` within the given tolerances, and
+            executes it while a parallel F/T monitor races the execution
+            (since joint_trajectory_controller has no built-in F/T abort).
             """
-            nonlocal max_pose_distance
-            pose_distance = (
-                post_stamped.pose.position.x**2.0
-                + post_stamped.pose.position.y**2.0
-                + post_stamped.pose.position.z**2.0
-            ) ** 0.5
-            max_pose_distance = max(max_pose_distance, pose_distance)
-            prop = (max_pose_distance - pose_distance) / max_pose_distance  # ** 0.5
-            return (
-                self.max_linear_speed * (1.0 - prop)
-                + self.linear_speed_near_mouth * prop,
-                self.max_angular_speed * (1.0 - prop)
-                + self.angular_speed_near_mouth * prop,
+            return py_trees.composites.Sequence(
+                name=name + "MoveToMouthViaJTC" + suffix,
+                memory=True,
+                children=[
+                    ActivateControllerTree(
+                        self._node,
+                        controller_to_activate="joint_trajectory_controller",
+                    )
+                    .create_tree(name=name + "ActivateController" + suffix)
+                    .root,
+                    MoveIt2PoseConstraint(
+                        name=name + " MoveToMouthPoseGoal" + suffix,
+                        ns=name,
+                        inputs={
+                            "pose": BlackboardKey("goal_pose"),
+                            "tolerance_position": tolerance_position,
+                            "tolerance_orientation": tolerance_orientation,
+                            "parameterization": 1,  # Rotation vector
+                        },
+                        outputs={"constraints": BlackboardKey("goal_constraints")},
+                    ),
+                    py_trees.decorators.Timeout(
+                        name=name + " MoveToMouthPlanTimeout" + suffix,
+                        duration=10.0,
+                        child=MoveIt2Plan(
+                            name=name + " MoveToMouthPlan" + suffix,
+                            ns=name,
+                            inputs={
+                                "goal_constraints": BlackboardKey(
+                                    "goal_constraints"
+                                ),
+                                "allowed_planning_time": 3.0,
+                                # Fraction of max configured joint velocity
+                                # (not directly comparable to the old
+                                # Cartesian m/s speed params).
+                                "max_velocity_scale": 0.25,
+                                # Straight-line path; avoid kinematic
+                                # (joint-space) plans near the face, matching
+                                # MoveFromMouth's precedent.
+                                "cartesian": True,
+                                "cartesian_fraction_threshold": 0.95,
+                            },
+                            outputs={"trajectory": BlackboardKey("trajectory")},
+                        ),
+                    ),
+                    py_trees.composites.Parallel(
+                        name=name + " MoveToMouthExecuteWithFTMonitor" + suffix,
+                        policy=py_trees.common.ParallelPolicy.SuccessOnAll(),
+                        children=[
+                            MoveIt2Execute(
+                                name=name + " MoveToMouthExecute" + suffix,
+                                ns=name,
+                                inputs={
+                                    "trajectory": BlackboardKey("trajectory")
+                                },
+                                outputs={},
+                            ),
+                            ft_thresh_satisfied(
+                                name=name + " MoveToMouthFTMonitor" + suffix,
+                                f_mag=self.force_threshold,
+                                t_mag=self.torque_threshold,
+                            ),
+                        ],
+                    ),
+                ],
             )
 
         # Root Sequence
@@ -431,17 +496,25 @@ class MoveToMouthTree(MoveToTree):
                         "transformed_msg": BlackboardKey("goal_pose"),  # PoseStamped
                     },
                 ),
-                # Retare the F/T sensor and set the F/T Thresholds
+                # Retare the F/T sensor. No controller-level F/T thresholds to
+                # set here -- joint_trajectory_controller has no built-in force
+                # gate, so F/T is enforced by the parallel ft_thresh_satisfied
+                # monitor below instead.
                 pre_moveto_config(
                     name=name + "PreMoveToConfig",
                     toggle_watchdog_listener=False,
-                    f_mag=self.force_threshold,
-                    t_mag=self.torque_threshold,
-                    param_service_name="~/set_servo_controller_parameters",
+                    set_ft_thresholds=False,
                 ),
                 # Allow collisions with the expanded wheelchair collision box
+                # only. The head collision object is deliberately left as a
+                # hard obstacle -- planning must route the fork clear of the
+                # head mesh rather than relying on the force gate / slow
+                # approach speed to catch a contact after the fact.
+                # plan_distance_from_mouth is set with enough clearance from
+                # the mouth center for a valid plan to exist under this
+                # constraint.
                 scoped_behavior(
-                    name=name + " AllowWheelchairCollisionScopeAndStartServo",
+                    name=name + " AllowWheelchairCollisionScope",
                     pre_behavior=py_trees.composites.Sequence(
                         name=name,
                         memory=True,
@@ -451,50 +524,72 @@ class MoveToMouthTree(MoveToTree):
                                 [self.wheelchair_collision_object_id],
                                 True,
                             ),
-                            StartServoTree(self._node)
-                            .create_tree(name=name + "StartServo")
-                            .root,
                         ],
                     ),
-                    # Disallow collisions with the expanded wheelchair collision
-                    # box.
+                    # Disallow collisions with the expanded wheelchair
+                    # collision box.
                     post_behavior=py_trees.composites.Sequence(
                         name=name,
                         memory=True,
                         children=[
-                            StopServoTree(self._node)
-                            .create_tree(name=name + "StopServo")
-                            .root,
                             get_toggle_collision_object_behavior(
                                 name + "DisallowWheelchairCollisionScopePost",
                                 [self.wheelchair_collision_object_id],
                                 False,
                             ),
-                            pre_moveto_config(
-                                name=name + "PreMoveToConfigScopePost",
-                                re_tare=False,
-                                f_mag=1.0,
-                                param_service_name="~/set_servo_controller_parameters",
-                            ),
+                            # Restore the default controller, matching the
+                            # *RestoreControllerAfterMotion convention every
+                            # other action tree uses after a JTC motion.
+                            ActivateControllerTree(self._node)
+                            .create_tree(name=name + "RestoreControllerAfterMotion")
+                            .root,
                         ],
                     ),
-                    # Move to the target pose
+                    # Move to the target pose via joint_trajectory_controller.
+                    # NOTE: We used to move via MoveIt Servo
+                    # (jaco_arm_servo_controller), but that reliably stalled on
+                    # the real robot -- the arm would creep forward, stall, and
+                    # repeat until timing out, with MoveIt Servo's own status
+                    # topic reporting NO_WARNING throughout (confirmed via
+                    # live diagnostics: no collision, singularity, or F/T gate
+                    # trip was ever reported during a failing run). We switched
+                    # to a discrete MoveIt2 plan+execute instead. Since
+                    # joint_trajectory_controller has no built-in F/T abort
+                    # (unlike jaco_arm_servo_controller's ForceGateController),
+                    # F/T is enforced by a parallel ft_thresh_satisfied monitor
+                    # racing the execution, same pattern as MoveInto in
+                    # acquire_food_tree.py.
                     workers=[
-                        servo_until_pose(
-                            name=name + " MoveToMouth",
-                            ns=name,
-                            target_pose_stamped_key=BlackboardKey("goal_pose"),
-                            tolerance_position=self.mouth_position_tolerance,
-                            tolerance_orientation=0.09,
-                            relaxed_tolerance_position=self.relaxed_mouth_position_tolerance,
-                            relaxed_tolerance_orientation=0.15,
-                            duration=10.0,
-                            round_decimals=3,
-                            speed=speed,
-                            ignore_orientation=True,
-                            subscribe_to_servo_status=False,
-                            pub_topic="~/servo_twist_cmds",
-                            viz=True,
+                        py_trees.composites.Selector(
+                            name=name + " MoveToMouthToleranceSelector",
+                            memory=True,
+                            children=[
+                                # NOTE: tolerance_orientation is intentionally
+                                # ~unconstrained (math.pi, the max possible
+                                # per-axis rotation-vector error) rather than a
+                                # tight value. The original Servo-based
+                                # approach used ignore_orientation=True --
+                                # orientation was never actively tracked, only
+                                # position -- relying on MoveToStagingConfiguration
+                                # having already left the wrist close to
+                                # fork_target_orientation_from_mouth. A real
+                                # (even loose) orientation constraint here
+                                # makes MoveIt2Plan treat the goal orientation
+                                # as a hard requirement, which can force a
+                                # large, unexpected final-joint rotation if the
+                                # incoming wrist orientation isn't already
+                                # close to the target -- as observed on
+                                # hardware. This restores the original
+                                # position-only behavior.
+                                move_to_mouth_via_jtc(
+                                    self.mouth_position_tolerance, math.pi, "Tight"
+                                ),
+                                move_to_mouth_via_jtc(
+                                    self.relaxed_mouth_position_tolerance,
+                                    math.pi,
+                                    "Relaxed",
+                                ),
+                            ],
                         )
                     ],
                 ),

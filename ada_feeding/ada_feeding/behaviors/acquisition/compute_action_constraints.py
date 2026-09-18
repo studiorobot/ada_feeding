@@ -27,6 +27,7 @@ import py_trees
 import rclpy
 import ros2_numpy
 from scipy.spatial.transform import Rotation as R
+import tf2_py as tf2
 
 # Local imports
 from ada_feeding_msgs.msg import AcquisitionSchema
@@ -124,6 +125,15 @@ class ComputeActionConstraints(BlackboardBehavior):
         # Get Node from Kwargs
         self.node = kwargs["node"]
 
+        # Get TF Listener from blackboard.
+        # AcquisitionSchema poses are defined in the "forkTip" utensil frame,
+        # but only the MoveIt tip link (`ada_end_effector_link`) has a
+        # configured IK solver, so we need this to re-target poses to it.
+        self.tf_buffer, _, self.tf_lock = get_tf_object(self.blackboard, self.node)
+
+        # Get the MoveIt2 object, to get the tip link's name
+        self.moveit2, self.moveit2_lock = get_moveit2_object(self.blackboard, self.node)
+
     @override
     def update(self) -> py_trees.common.Status:
         # Docstring copied from @override
@@ -149,6 +159,36 @@ class ComputeActionConstraints(BlackboardBehavior):
 
         action_set = self.blackboard_get("action")
         if action_set is None:
+            # Look up the fixed (URDF) offset from the MoveIt tip link to the
+            # "forkTip" utensil frame that AcquisitionSchema poses are defined
+            # in. Do this before sampling the action below, so that a RUNNING
+            # return (TF/MoveIt2 objects still locked) doesn't cause us to
+            # re-sample on the next tick.
+            if self.tf_lock.locked() or self.moveit2_lock.locked():
+                return py_trees.common.Status.RUNNING
+            with self.tf_lock, self.moveit2_lock:
+                try:
+                    ee_pose_in_forktip_frame = ros2_numpy.numpify(
+                        self.tf_buffer.lookup_transform(
+                            "forkTip",
+                            self.moveit2.end_effector_name,
+                            rclpy.time.Time(),
+                        ).transform
+                    )
+                except (
+                    tf2.ConnectivityException,
+                    tf2.ExtrapolationException,
+                    tf2.InvalidArgumentException,
+                    tf2.LookupException,
+                    tf2.TimeoutException,
+                    tf2.TransformException,
+                ) as error:
+                    self.logger.error(
+                        "Could not get forkTip -> "
+                        f"{self.moveit2.end_effector_name} transform: {error}"
+                    )
+                    return py_trees.common.Status.FAILURE
+
             # Sample Action
             index = np.random.choice(np.arange(prob.size), p=prob)
             action = response.actions[index]
@@ -169,14 +209,35 @@ class ComputeActionConstraints(BlackboardBehavior):
                 / np.linalg.norm(position)
             )
             action.pre_transform.position = ros2_numpy.msgify(Point, position)
-            self.blackboard_set("move_above_pose", action.pre_transform)
+            self.logger.info(
+                f"DEBUG move_above_pose (food frame, forkTip): {action.pre_transform}"
+            )
+            # move_above_pose/move_into_pose are goal constraints for the
+            # MoveIt tip link (see docstring on blackboard_outputs), so
+            # re-target them from the forkTip-frame pose in AcquisitionSchema
+            # using the fixed offset looked up above. Without this, goal
+            # constraints reference a link the IK solver isn't configured
+            # for, and planning reliably fails to find a solution in time.
+            self.blackboard_set(
+                "move_above_pose",
+                ros2_numpy.msgify(
+                    Pose,
+                    ros2_numpy.numpify(action.pre_transform) @ ee_pose_in_forktip_frame,
+                ),
+            )
 
             # Calculate Approach Target (in food frame)
             move_into_pose = Pose()
             move_into_pose.orientation = deepcopy(action.pre_transform.orientation)
             offset = ros2_numpy.numpify(action.pre_offset)
             move_into_pose.position = ros2_numpy.msgify(Point, offset)
-            self.blackboard_set("move_into_pose", move_into_pose)
+            self.blackboard_set(
+                "move_into_pose",
+                ros2_numpy.msgify(
+                    Pose,
+                    ros2_numpy.numpify(move_into_pose) @ ee_pose_in_forktip_frame,
+                ),
+            )
 
             ### Calculate Approach Frame
             approach_vec = offset - position

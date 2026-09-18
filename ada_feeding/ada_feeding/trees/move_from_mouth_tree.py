@@ -489,6 +489,18 @@ class MoveFromMouthTree(MoveToTree):
         # Move to the end configuration if it is provided
         if self.end_configuration is not None:
             root_seq.children.append(
+                # Activate the joint trajectory controller before attempting
+                # motion. This is necessary because this stage is reached
+                # after the staging-pose motion above, which leaves
+                # jaco_arm_controller active (not joint_trajectory_controller,
+                # which MoveIt2Plan/MoveIt2Execute below require).
+                ActivateControllerTree(
+                    self._node, controller_to_activate="joint_trajectory_controller"
+                )
+                .create_tree(name=name + "ActivateControllerToEnd")
+                .root
+            )
+            root_seq.children.append(
                 # Add the wall in front of the wheelchair to prevent the arm from
                 # Moving closer to the user than it currently is.
                 scoped_behavior(
@@ -557,6 +569,18 @@ class MoveFromMouthTree(MoveToTree):
                     ],  # End AddInFrontOfWheelchairWallScope.workers
                 ),  # End AddInFrontOfWheelchairWallScope
             )  # End root_seq.children.append
+            root_seq.children.append(
+                # Re-activate jaco_arm_controller after motion completes so
+                # it's available for the next action (no re-tare to avoid
+                # timeout), matching MoveToConfigurationWithWheelchairWallTree.
+                ActivateControllerTree(
+                    self._node,
+                    controller_to_activate="jaco_arm_controller",
+                    re_tare=False,
+                )
+                .create_tree(name=name + "RestoreControllerAfterMotionToEnd")
+                .root
+            )
 
         ### Return tree
         return py_trees.trees.BehaviourTree(root_seq)

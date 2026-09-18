@@ -661,9 +661,12 @@ class MoveIt2Plan(BlackboardBehavior):
         elif len(joint_names) > 0:
             raise ValueError("Joint names array should match joint positions array.")
 
-        # Compare with desired joints
+        # Compare with desired joints. Wrap the raw difference to the shortest
+        # angular distance so continuous joints (e.g., a difference of 2*pi)
+        # aren't mistaken for a large, unsatisfied diff.
         curr_positions = curr_positions[: len(des_positions)]
-        diff = np.fabs(np.array(curr_positions) - np.array(des_positions))
+        raw_diff = np.array(curr_positions) - np.array(des_positions)
+        diff = np.fabs(np.arctan2(np.sin(raw_diff), np.cos(raw_diff)))
 
         result = np.all(diff < tol)
         # DEBUG LOGGING

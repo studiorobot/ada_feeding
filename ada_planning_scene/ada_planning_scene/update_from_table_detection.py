@@ -27,6 +27,19 @@ from transforms3d._gohlketransforms import quaternion_multiply
 from ada_planning_scene.collision_object_manager import CollisionObjectManager
 from ada_planning_scene.helpers import CollisionObjectParams
 
+# `table_detection`'s plane-fitting always reports the table's local X axis as
+# whatever the camera's own optical-frame X axis happens to be (projected onto the
+# table plane), not the table's true long/short edge. So the reported orientation
+# is tied to the camera's physical roll in its current mount, not to the table's
+# actual geometry. On the current camera mount, that convention lands ~90 degrees
+# (about the table's normal) from the table's true edges, so every detection is
+# corrected by this fixed amount before it's used. If the camera is re-mounted at
+# a different roll, this value will need to be re-derived.
+# wxyz for a +90 degree rotation about Z.
+TABLE_ORIENTATION_CORRECTION_WXYZ = np.array(
+    [0.70710678, 0.0, 0.0, 0.70710678]
+)
+
 # Define a namedtuple to store latest the joint state
 UpdateFromTableDetectionParams = namedtuple(
     "UpdateFromTableDetectionParams",
@@ -316,6 +329,24 @@ class UpdateFromTableDetection:
                 f"Failed to transform the detected table center: {e}"
             )
             return
+
+        # Correct for table_detection's camera-relative orientation convention
+        # (see TABLE_ORIENTATION_CORRECTION_WXYZ above).
+        corrected_quat_wxyz = quaternion_multiply(
+            TABLE_ORIENTATION_CORRECTION_WXYZ,
+            np.array(
+                [
+                    detected_table_pose.pose.orientation.w,
+                    detected_table_pose.pose.orientation.x,
+                    detected_table_pose.pose.orientation.y,
+                    detected_table_pose.pose.orientation.z,
+                ]
+            ),
+        )
+        detected_table_pose.pose.orientation.w = corrected_quat_wxyz[0]
+        detected_table_pose.pose.orientation.x = corrected_quat_wxyz[1]
+        detected_table_pose.pose.orientation.y = corrected_quat_wxyz[2]
+        detected_table_pose.pose.orientation.z = corrected_quat_wxyz[3]
 
         # Get the parameters for the namespace we are using
         table_origin_offset = self.__namespace_to_params[

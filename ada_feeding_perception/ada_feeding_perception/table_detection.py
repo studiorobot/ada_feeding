@@ -405,8 +405,8 @@ class TableDetectionNode:
 
         # Deproject the pixel coordinates of the center of the camera image to a
         # 3D point on the table using camera intrinsics and the table plane equation
-        max_u = 640  # Max u index in a 640 x 480 image
-        max_v = 480  # Max v index in a 640 x 480 image
+        max_u = camera_info.width
+        max_v = camera_info.height
         center_x = ((max_u / 2) - c_x) / f_x
         center_y = ((max_v / 2) - c_y) / f_y
         center_z = c / (1 - a * center_x - b * center_y)
